@@ -13,22 +13,13 @@
  * limitations under the License.
  */
 
-package org.gearvrf;
+/***************************************************************************
+ * Printing C++ stacktrace when native crash happens. Using tag gvrf
+ ***************************************************************************/
 
-/** Wrapper for GearVR rotation sensor. */
-class KSensorListener {
-    private final RotationSensor mSensor;
+#ifndef GVR_CPP_STACK_TRACE_H_
+#define GVR_CPP_STACK_TRACE_H_
 
-    KSensorListener(RotationSensor sensor) {
-        mSensor = sensor;
-    }
+void printStackTrace(unsigned int max_frames = 10);
 
-    void onSensorChanged(long timeStamp, float w, float x, float y, float z,
-            float gyroX, float gyroY, float gyroZ) {
-        mSensor.onKSensor(timeStamp, w, x, y, z, gyroX, gyroY, gyroZ);
-    }
-
-    void onSensorErrorDetected() {
-        mSensor.onKSensorError();
-    }
-}
+#endif // GVR_CPP_STACK_TRACE_H_
