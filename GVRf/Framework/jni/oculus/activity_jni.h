@@ -17,15 +17,19 @@
 #ifndef ACTIVITY_JNI_H
 #define ACTIVITY_JNI_H
 
-#include "glm/glm.hpp"
-#include "App.h"
-#include "SceneView.h"
-#include "Input.h"
 #include "view_manager.h"
+#include "sensor/ksensor/k_sensor.h"
 #include "../objects/components/camera.h"
 #include "../objects/components/camera_rig.h"
+#include "fbwrapper.h"
+
+#include "glm/glm.hpp"
+
 #include "VrApi.h"
-#include "sensor/ksensor/k_sensor.h"
+#include "VrApi_Types.h"
+#include "VrApi_Helpers.h"
+
+#include <android/native_window_jni.h>
 
 namespace gvr {
 
@@ -34,68 +38,60 @@ namespace gvr {
 class OculusHeadRotation;
 class KSensorHeadRotation;
 
-template <class R> class GVRActivityT : public OVR::VrAppInterface
+
+template <class R> class GVRActivityT
 {
 public:
-    GVRActivityT(JNIEnv& jni);
-    virtual ~GVRActivityT() {}
+    GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks);
+    virtual ~GVRActivityT();
 
-    virtual void        Configure( OVR::ovrSettings & settings );
-    virtual void        OneTimeInit( const char * fromPackage, const char * launchIntentJSON, const char * launchIntentURI );
-    virtual void        OneTimeShutdown();
-    virtual OVR::Matrix4f    DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms );
-    virtual OVR::Matrix4f    Frame( const OVR::VrFrame & vrFrame );
-    virtual bool        OnKeyEvent( const int keyCode, const int repeatCount, const OVR::KeyEventType eventType );
-    bool                updateSensoredScene();
-    void                setCameraRig(jlong cameraRig);
-    void                initJni();
+//    virtual void        Configure( OVR::ovrSettings & settings );
+    bool updateSensoredScene();
+    void setCameraRig(jlong cameraRig);
 
-    // When launched by an intent, we may be viewing a partial
-    // scene for debugging, so always clear the screen to grey
-    // before drawing, instead of letting partial renders show through.
-    bool                forceScreenClear;
-    bool                ModelLoaded;
+    GVRViewManager viewManager_;
 
-    OVR::OvrSceneView   Scene;
-
-    GVRViewManager*     viewManager;
-
-    Camera*             camera;
-    CameraRig*          cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
-    bool                sensoredSceneUpdated_ = false;
-    R                   headRotationProvider_;
+    Camera* camera = nullptr;
+    CameraRig* cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
+    bool sensoredSceneUpdated_ = false;
+    R headRotationProvider_;
 
 private:
-    glm::mat4           mvp_matrix;
-    void                SetMVPMatrix(glm::mat4 mvp){
-        viewManager->mvp_matrix = mvp;
-    }
+    JNIEnv* jniMainThread_ = nullptr;           // for use by the Java UI thread
 
-    JNIEnv*             uiJni;            // for use by the Java UI thread
-    OVR::Matrix4f       GetEyeView( const int eye, const float fovDegreesX, const float fovDegreesY ) const;
+    jclass activityClass_ = nullptr;            // must be looked up from main thread or FindClass() will fail
+    jclass activityRenderingCallbacksClass_ = nullptr;
 
-    jclass              activityClass = nullptr;    // must be looked up from main thread or FindClass() will fail
+    jclass vrAppSettingsClass_ = nullptr;
+    jclass eyeBufferParmsClass = nullptr;
 
-    jclass              vrAppSettingsClass = nullptr;
-    jclass              eyeBufferParmsClass = nullptr;
+    jmethodID getAppSettingsMethodId = nullptr;
+    jmethodID onDrawEyeMethodId = nullptr;
+    jmethodID updateSensoredSceneMethodId = nullptr;
 
-    jmethodID           getAppSettingsMethodId = nullptr;
+    jclass GetGlobalClassReference( const char * className ) const;
+    jmethodID GetMethodId(const jclass clazz, const char* name, const char* signature );
+    jmethodID GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
 
-    jmethodID           oneTimeInitMethodId = nullptr;
-    jmethodID           oneTimeShutdownMethodId = nullptr;
+public:
+    void onSurfaceCreated();
+    void onDrawFrame();
+    bool initializeVrApi();
+    void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
+    void leaveVrApi();
+    void onDestroy();
+    void showGlobalMenu();
 
-    jmethodID           drawFrameMethodId = nullptr;
+    jobject activity_ = nullptr;
+    jobject activityRenderingCallbacks_ = nullptr;
 
-    jmethodID           beforeDrawEyesMethodId = nullptr;
-    jmethodID           drawEyeViewMethodId = nullptr;
-    jmethodID           afterDrawEyesMethodId = nullptr;
-
-    jmethodID           onKeyEventNativeMethodId = nullptr;
-    jmethodID           updateSensoredSceneMethodId = nullptr;
-
-    jclass              GetGlobalClassReference( const char * className ) const;
-    jmethodID           GetMethodID( const char * name, const char * signature );
-    jmethodID           GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
+    ovrJava oculusJavaMainThread_;
+    ovrJava oculusJavaGlThread_;
+    ovrMobile* oculusMobile_ = nullptr;
+    long long frameIndex = 1;
+    FbWrapper FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
+    ovrMatrix4f ProjectionMatrix;
+    ovrMatrix4f TexCoordsTanAnglesMatrix;
 };
 
 
@@ -107,18 +103,18 @@ typedef GVRActivityT<OculusHeadRotation> GVRActivity;
 
 class KSensorHeadRotation {
 public:
-    void predict(GVRActivityT<KSensorHeadRotation>& gvrActivity, const ovrFrameParms&, const float time) {
-        if (nullptr != gvrActivity.cameraRig_) {
-            if (nullptr == sensor_.get()) {
-                gvrActivity.cameraRig_->predict(time);
-            } else {
-                sensor_->convertTo(rotationSensorData_);
-                gvrActivity.cameraRig_->predict(time, rotationSensorData_);
-            }
-        } else {
-            gvrActivity.cameraRig_->setRotation(glm::quat());
-        }
-    }
+//    void predict(GVRActivityT<KSensorHeadRotation>& gvrActivity, const ovrFrameParms&, const float time) {
+//        if (nullptr != gvrActivity.cameraRig_) {
+//            if (nullptr == sensor_.get()) {
+//                gvrActivity.cameraRig_->predict(time);
+//            } else {
+//                sensor_->convertTo(rotationSensorData_);
+//                gvrActivity.cameraRig_->predict(time, rotationSensorData_);
+//            }
+//        } else {
+//            gvrActivity.cameraRig_->setRotation(glm::quat());
+//        }
+//    }
     bool receivingUpdates() {
         return rotationSensorData_.hasBeenUpdated();
     }
@@ -143,7 +139,7 @@ class OculusHeadRotation {
 public:
     void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
         if (docked_) {
-            ovrMobile* ovr = gvrActivity.app->GetOvrMobile();
+            ovrMobile* ovr = gvrActivity.oculusMobile_;
             ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
             ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
             tracking = vrapi_ApplyHeadModel(&headModelParms, &tracking);

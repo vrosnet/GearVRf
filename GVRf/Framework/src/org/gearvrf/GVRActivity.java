@@ -45,7 +45,7 @@ import android.view.WindowManager;
  * of your scene graph. {@code GVRActivity} also gives GVRF a full-screen window
  * in landscape orientation with no title bar.
  */
-public class GVRActivity extends VrActivity {
+public class GVRActivity extends Activity {
 
     private static final String TAG = Log.tag(GVRActivity.class);
 
@@ -58,7 +58,7 @@ public class GVRActivity extends VrActivity {
     public static final int KEY_EVENT_UP = 5;
     public static final int KEY_EVENT_MAX = 6;
 
-    private GVRViewManager mGVRViewManager = null;
+    private GVRViewManager mViewManager;
     private GVRCamera mCamera;
     private VrAppSettings mAppSettings;
     private long mPtr;
@@ -71,13 +71,37 @@ public class GVRActivity extends VrActivity {
         System.loadLibrary("gvrf");
     }
 
-    public static native long nativeSetAppInterface(VrActivity act,
-            String fromPackageName, String commandString, String uriString);
+    public interface ActivityHandlerRenderingCallbacks {
+        public void onSurfaceCreated();
+
+        public void onBeforeDrawEyes();
+
+        public void onDrawEye(int eye);
+
+        public void onAfterDrawEyes();
+    }
+
+    public interface ActivityHandler {
+        public long onCreate();
+
+        public void onPause();
+
+        public void onResume();
+
+        public void onDestroy();
+
+        public boolean dispatchKeyEvent(KeyEvent event);
+    }
 
     static native void nativeSetCamera(long appPtr, long camera);
+
     static native void nativeSetCameraRig(long appPtr, long cameraRig);
+
     static native void nativeOnDock(long appPtr);
+
     static native void nativeOnUndock(long appPtr);
+
+    static native void nativeOnDestroy(long appPtr);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,40 +116,33 @@ public class GVRActivity extends VrActivity {
         mAppSettings = new VrAppSettings();
         super.onCreate(savedInstanceState);
 
-        Intent intent = getIntent();
-        String commandString = VrActivity.getCommandStringFromIntent(intent);
-        String fromPackageNameString = VrActivity
-                .getPackageStringFromIntent(intent);
-        String uriString = VrActivity.getUriStringFromIntent(intent);
-        
-        mPtr = nativeSetAppInterface(this, fromPackageNameString,
-                commandString, uriString);
-
-        setAppPtr(mPtr);
-
         mDockEventReceiver = new DockEventReceiver(this, mRunOnDock, mRunOnUndock);
-
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
+
+        mPtr = mActivityHandler.onCreate();
+        if (0 == mPtr) {
+            Log.e(TAG, "Unable to create native peer!");
+            finish();
+        }
     }
 
     protected void onInitAppSettings(VrAppSettings appSettings) {
-
     }
 
-    public VrAppSettings getAppSettings(){
+    public VrAppSettings getAppSettings() {
         return mAppSettings;
     }
 
     @Override
     protected void onPause() {
         android.util.Log.i(TAG, "onPause " + Integer.toHexString(hashCode()));
-        if (mGVRViewManager != null) {
-            mGVRViewManager.onPause();
+        if (mViewManager != null) {
+            mViewManager.onPause();
         }
         if (null != mDockEventReceiver) {
             mDockEventReceiver.stop();
         }
-
+        mActivityHandler.onPause();
         super.onPause();
     }
 
@@ -133,21 +150,22 @@ public class GVRActivity extends VrActivity {
     protected void onResume() {
         android.util.Log.i(TAG, "onResume " + Integer.toHexString(hashCode()));
         super.onResume();
-        if (mGVRViewManager != null) {
-            mGVRViewManager.onResume();
+        if (mViewManager != null) {
+            mViewManager.onResume();
         }
         if (null != mDockEventReceiver) {
             mDockEventReceiver.start();
         }
+        mActivityHandler.onResume();
     }
 
     @Override
     protected void onDestroy() {
         android.util.Log.i(TAG, "onDestroy " + Integer.toHexString(hashCode()));
-        if (mGVRViewManager != null) {
-            mGVRViewManager.onDestroy();
+        if (mViewManager != null) {
+            mViewManager.onDestroy();
         }
-
+        nativeOnDestroy(mPtr);
         super.onDestroy();
     }
 
@@ -179,9 +197,9 @@ public class GVRActivity extends VrActivity {
                     distortionDataFileName, mAppSettings);
             onInitAppSettings(mAppSettings);
             if (isVrSupported() && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
-                mGVRViewManager = new GVRViewManager(this, gvrScript, xmlParser);
+                mViewManager = new GVRViewManager(this, gvrScript, xmlParser);
             } else {
-                mGVRViewManager = new GVRMonoscopicViewManager(this, gvrScript,
+                mViewManager = new GVRMonoscopicViewManager(this, gvrScript,
                         xmlParser);
             }
         } else {
@@ -200,9 +218,7 @@ public class GVRActivity extends VrActivity {
      *            rendering and choose the appropriate ViewManager. This call
      *            will only have an effect if it is called before
      *            {@linkplain #setScript(GVRScript, String) setScript()}.
-     *            
      * @deprecated
-     * 
      */
     @Deprecated
     public void setForceMonoscopic(boolean force) {
@@ -241,144 +257,73 @@ public class GVRActivity extends VrActivity {
     public boolean isS6Edge() {
         return Build.MODEL.contains("SM-G925");
     }
-    
+
     public boolean isS6EdgePlus() {
         return Build.MODEL.contains("SM-G928");
     }
-    
+
     public boolean isNote5() {
         return Build.MODEL.contains("SM-N920");
     }
 
-    public long getAppPtr(){
+    public long getAppPtr() {
         return mPtr;
-    }
-    
-    void drawFrame() {
-        mGVRViewManager.onDrawFrame();
-    }
-
-    void oneTimeInit() {
-        mGVRViewManager.onSurfaceCreated();
-        Log.e(TAG, " oneTimeInit from native layer");
     }
 
     void oneTimeShutDown() {
         Log.e(TAG, " oneTimeShutDown from native layer");
     }
 
-    void beforeDrawEyes() {
-        mGVRViewManager.beforeDrawEyes();
-    }
-
-    void onDrawEyeView(int eye, float fovDegrees) {
-        mGVRViewManager.onDrawEyeView(eye, fovDegrees);
-    }
-
-    void afterDrawEyes() {
-        mGVRViewManager.afterDrawEyes();
-    }
-
     void setCamera(GVRCamera camera) {
         mCamera = camera;
-
-        nativeSetCamera(getAppPtr(), camera.getNative());
+        nativeSetCamera(mPtr, camera.getNative());
     }
 
     void setCameraRig(GVRCameraRig cameraRig) {
-        nativeSetCameraRig(getAppPtr(), cameraRig.getNative());
+        nativeSetCameraRig(mPtr, cameraRig.getNative());
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        boolean handled = mGVRViewManager.dispatchKeyEvent(event);
+        if (mActivityHandler.dispatchKeyEvent(event)) {
+            return true;
+        }
+        boolean handled = mViewManager.dispatchKeyEvent(event);
         if (handled == false) {
-            handled = super.dispatchKeyEvent(event);// VrActivity's
+            handled = super.dispatchKeyEvent(event);
         }
         return handled;
     }
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
+        boolean handled = mViewManager.dispatchMotionEvent(event);
         if (handled == false) {
-            handled = super.dispatchGenericMotionEvent(event);// VrActivity's
+            handled = super.dispatchGenericMotionEvent(event);
         }
         return handled;
     }
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
-
+        boolean handled = mViewManager.dispatchMotionEvent(event);
         if (handled == false) {
             handled = super.dispatchTouchEvent(event);// VrActivity's
         }
-        /*
-         * Situation: while the super class VrActivity is implementing
-         * dispatchTouchEvent() without calling its own super
-         * dispatchTouchEvent(), we still need to call the
-         * VRTouchPadGestureDetector onTouchEvent. Call it here, similar way
-         * like in place of viewGroup.onInterceptTouchEvent()
-         */
-        onTouchEvent(event);
-
         return handled;
     }
 
-    boolean onKeyEventNative(int keyCode, int eventType) {
-
-        /*
-         * Currently VrLib does not call Java onKeyDown()/onKeyUp() in the
-         * Activity class. In stead, it calls VrAppInterface->OnKeyEvent if
-         * defined in the native side, to give a chance to the app before it
-         * intercepts. With this implementation, the developers can expect
-         * consistently their key event methods are called as usual in case they
-         * want to use the events. The parameter eventType matches with the
-         * native side. It can be more than two, DOWN and UP, if the native
-         * supports in the future.
-         */
-
-        switch (eventType) {
-        case KEY_EVENT_SHORT_PRESS:
-            return onKeyShortPress(keyCode);
-        case KEY_EVENT_DOUBLE_TAP:
-            return onKeyDoubleTap(keyCode);
-        case KEY_EVENT_LONG_PRESS:
-            return onKeyLongPress(keyCode, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        case KEY_EVENT_DOWN:
-            return onKeyDown(keyCode, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        case KEY_EVENT_UP:
-            return onKeyUp(keyCode, new KeyEvent(KeyEvent.ACTION_UP, keyCode));
-        case KEY_EVENT_MAX:
-            return onKeyMax(keyCode);
-        default:
-            return false;
-        }
-    }
-
-    public boolean onKeyShortPress(int keyCode) {
-        return false;
-    }
-
-    public boolean onKeyDoubleTap(int keyCode) {
-        return false;
-    }
-
-    public boolean onKeyMax(int keyCode) {
-        return false;
-    }
-
     boolean updateSensoredScene() {
-        return mGVRViewManager.updateSensoredScene();
+        return mViewManager.updateSensoredScene();
     }
 
     /**
-     * It is a convenient function to add a {@link GVRView} to Android hierarchy view.
-     * UI thread will call {@link GVRView#draw(android.graphics.Canvas)} to refresh the view
-     * when necessary.
+     * It is a convenient function to add a {@link GVRView} to Android hierarchy
+     * view. UI thread will call {@link GVRView#draw(android.graphics.Canvas)}
+     * to refresh the view when necessary.
      *
-     * @param view Is a {@link GVRView} that draw itself into some {@link GVRViewSceneObject}.
+     * @param view Is a {@link GVRView} that draw itself into some
+     *            {@link GVRViewSceneObject}.
      */
     public void registerView(View view) {
         mRenderableViewGroup.addView(view);
@@ -386,6 +331,7 @@ public class GVRActivity extends VrActivity {
 
     /**
      * Remove a child view of Android hierarchy view .
+     * 
      * @param view View to be removed.
      */
     public void unregisterView(View view) {
@@ -393,22 +339,54 @@ public class GVRActivity extends VrActivity {
     }
 
     public GVRContext getGVRContext() {
-        return mGVRViewManager;
+        return mViewManager;
     }
 
     private final Runnable mRunOnDock = new Runnable() {
         @Override
         public void run() {
-            nativeOnDock(getAppPtr());
+            if (0 != mPtr) {
+                nativeOnDock(mPtr);
+            }
         }
     };
 
     private final Runnable mRunOnUndock = new Runnable() {
         @Override
         public void run() {
-            nativeOnUndock(getAppPtr());
+            if (0 != mPtr) {
+                nativeOnUndock(mPtr);
+            }
         }
     };
 
     private DockEventReceiver mDockEventReceiver;
+
+    private final ActivityHandlerRenderingCallbacks mRenderingCallbacks = new ActivityHandlerRenderingCallbacks() {
+        @Override
+        public void onSurfaceCreated() {
+            mViewManager.onSurfaceCreated();
+        }
+
+        @Override
+        public void onBeforeDrawEyes() {
+            mViewManager.beforeDrawEyes();
+            mViewManager.onDrawFrame();
+        }
+
+        @Override
+        public void onAfterDrawEyes() {
+            mViewManager.afterDrawEyes();
+        }
+
+        @Override
+        public void onDrawEye(int eye) {
+            try {
+                mViewManager.onDrawEyeView(eye);
+            } catch (final Exception e) {
+                Log.e(TAG, "error in onDrawEyeView", e);
+            }
+        }
+    };
+    private ActivityHandler mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
 }

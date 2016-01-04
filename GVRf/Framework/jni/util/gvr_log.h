@@ -22,6 +22,9 @@
 #define LOG_H_
 
 #include <android/log.h>
+#include <exception>
+
+#include "GLES3/gl3.h"
 
 #define  LOG_TAG    "gvrf"
 #define  LOGV(...)  __android_log_print(ANDROID_LOG_VERBOSE,LOG_TAG,__VA_ARGS__)
@@ -31,5 +34,35 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 static bool DEBUG_RENDERER = false; //printf() or glGetError() per frame is expensive
+
+static const char * GlErrorString( GLenum error )
+{
+    switch ( error )
+    {
+        case GL_NO_ERROR:                       return "GL_NO_ERROR";
+        case GL_INVALID_ENUM:                   return "GL_INVALID_ENUM";
+        case GL_INVALID_VALUE:                  return "GL_INVALID_VALUE";
+        case GL_INVALID_OPERATION:              return "GL_INVALID_OPERATION";
+        case GL_INVALID_FRAMEBUFFER_OPERATION:  return "GL_INVALID_FRAMEBUFFER_OPERATION";
+        case GL_OUT_OF_MEMORY:                  return "GL_OUT_OF_MEMORY";
+        default: return "unknown";
+    }
+}
+static void GLCheckErrors(const char* name)
+{
+    for ( int i = 0; i < 10; i++ )
+    {
+        const GLenum error = glGetError();
+        if ( error == GL_NO_ERROR )
+        {
+            break;
+        }
+        LOGE( "gvrf: %s error: %s", name, GlErrorString( error ) );
+        //std::terminate();
+    }
+}
+
+#define GL( func )      func; GLCheckErrors(#func);
+//#define GL( func )      func;
 
 #endif
