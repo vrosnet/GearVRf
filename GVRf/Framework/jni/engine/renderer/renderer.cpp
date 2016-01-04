@@ -602,7 +602,7 @@ void Renderer::renderRenderData(RenderData* render_data,
                                     right);
                             break;
                         }
-                    } catch (std::string error) {
+                    } catch (const std::string& error) {
                         LOGE(
                                 "Error detected in Renderer::renderRenderData; name : %s, error : %s", render_data->owner_object()->name().c_str(), error.c_str());
                         shader_manager->getErrorShader()->render(mvp_matrix,
@@ -660,7 +660,7 @@ void Renderer::renderPostEffectData(Camera* camera,
                     post_effect_shader_manager->quad_triangles());
             break;
         }
-    } catch (std::string error) {
+    } catch (const std::string& error) {
         LOGE(
                 "Error detected in Renderer::renderPostEffectData; error : %s", error.c_str());
     }

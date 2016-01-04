@@ -16,14 +16,13 @@
 #ifndef VIEW_MANAGER_H
 #define VIEW_MANAGER_H
 
-#include <vector>
-#include <memory>
-#include "App.h"
-#include "SceneView.h"
-#include "AppLocal.h"
-#include "util/gvr_jni.h"
-#include "glm/glm.hpp"
 #include "objects/textures/render_texture.h"
+#include "util/gvr_jni.h"
+
+#include "glm/glm.hpp"
+
+#include <memory>
+#include <vector>
 
 namespace gvr {
 
@@ -38,17 +37,14 @@ class RenderData;
 class RenderTexture;
 class ShaderManager;
 
-
-#define OCULUS_EXAMPLE_CODE
 //#define GVRF_FBO_FPS
 
 class GVRViewManager
 {
 public:
-    GVRViewManager( JNIEnv & jni_, jobject activityObject_);
+    GVRViewManager();
     ~GVRViewManager();
-    void renderCamera(OVR::OvrSceneView &ovr_scene,
-                        Scene* scene,
+    void renderCamera(  Scene* scene,
                         Camera* camera,
                         ShaderManager* shader_manager,
                         PostEffectShaderManager* post_effect_shader_manager,
@@ -58,12 +54,12 @@ public:
     glm::mat4 mvp_matrix;
 
     // collect data
-    float  m_fps;
-    int    m_frameRendered;
-    float  m_startTime;
-    float  m_currentTime;
-    int    gNumFrame;
-    float  gTotalSec;
+    float  m_fps = 0;
+    int    m_frameRendered = 0;
+    float  m_startTime = 0;
+    float  m_currentTime = 0;
+    int    gNumFrame = 0;
+    float  gTotalSec = 0;
 
 };
 }

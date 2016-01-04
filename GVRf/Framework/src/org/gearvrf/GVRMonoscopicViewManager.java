@@ -94,39 +94,39 @@ class GVRMonoscopicViewManager extends GVRViewManager {
         float screenHeightMeters = (float) screenHeightPixels / metrics.ydpi
                 * INCH_TO_METERS;
 
-        mLensInfo = new GVRLensInfo(screenWidthPixels, screenHeightPixels,
-                screenWidthMeters, screenHeightMeters,
-                gvrActivity.getAppSettings());
-
-        GVRPerspectiveCamera.setDefaultFovY(gvrActivity.getAppSettings()
-                .getEyeBufferParms().getFovY());
-        int fboWidth = gvrActivity.getAppSettings().getEyeBufferParms()
-                .getResolutionWidth();
-        int fboHeight = gvrActivity.getAppSettings().getEyeBufferParms()
-                .getResolutionHeight();
-        if (gvrActivity.getAppSettings().getMonoScopicModeParms()
-                .isMonoFullScreenMode()) {
-            fboWidth = screenWidthPixels;
-            fboHeight = screenHeightPixels;
-        } else if (fboWidth <= 0 || fboHeight <= 0) {
-            fboWidth = fboHeight = VrAppSettings.DEFAULT_FBO_RESOLUTION;
-        }
-        float aspect = (float) fboWidth / (float) fboHeight;
-        GVRPerspectiveCamera.setDefaultAspectRatio(aspect);
-        mViewportX = 0;
-        mViewportY = 0;
-        mViewportWidth = fboWidth;
-        mViewportHeight = fboHeight;
-
-        mLensInfo.setFBOWidth(mViewportWidth);
-        mLensInfo.setFBOHeight(mViewportHeight);
-
-        if (fboWidth != screenWidthPixels) {
-            mViewportX = (screenWidthPixels / 2) - (fboWidth / 2);
-        }
-        if (fboHeight != screenHeightPixels) {
-            mViewportY = (screenHeightPixels / 2) - (fboHeight / 2);
-        }
+//        mLensInfo = new GVRLensInfo(screenWidthPixels, screenHeightPixels,
+//                screenWidthMeters, screenHeightMeters,
+//                gvrActivity.getAppSettings());
+//
+//        GVRPerspectiveCamera.setDefaultFovY(gvrActivity.getAppSettings()
+//                .getEyeBufferParms().getFovY());
+//        int fboWidth = gvrActivity.getAppSettings().getEyeBufferParms()
+//                .getResolutionWidth();
+//        int fboHeight = gvrActivity.getAppSettings().getEyeBufferParms()
+//                .getResolutionHeight();
+//        if (gvrActivity.getAppSettings().getMonoScopicModeParms()
+//                .isMonoFullScreenMode()) {
+//            fboWidth = screenWidthPixels;
+//            fboHeight = screenHeightPixels;
+//        } else if (fboWidth <= 0 || fboHeight <= 0) {
+//            fboWidth = fboHeight = VrAppSettings.DEFAULT_FBO_RESOLUTION;
+//        }
+//        float aspect = (float) fboWidth / (float) fboHeight;
+//        GVRPerspectiveCamera.setDefaultAspectRatio(aspect);
+//        mViewportX = 0;
+//        mViewportY = 0;
+//        mViewportWidth = fboWidth;
+//        mViewportHeight = fboHeight;
+//
+//        mLensInfo.setFBOWidth(mViewportWidth);
+//        mLensInfo.setFBOHeight(mViewportHeight);
+//
+//        if (fboWidth != screenWidthPixels) {
+//            mViewportX = (screenWidthPixels / 2) - (fboWidth / 2);
+//        }
+//        if (fboHeight != screenHeightPixels) {
+//            mViewportY = (screenHeightPixels / 2) - (fboHeight / 2);
+//        }
 
     }
 

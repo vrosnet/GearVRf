@@ -17,15 +17,16 @@
 #ifndef ACTIVITY_JNI_H
 #define ACTIVITY_JNI_H
 
-#include "glm/glm.hpp"
-#include "App.h"
-#include "SceneView.h"
-#include "Input.h"
 #include "view_manager.h"
+#include "sensor/ksensor/k_sensor.h"
 #include "../objects/components/camera.h"
 #include "../objects/components/camera_rig.h"
+
+#include "glm/glm.hpp"
+
 #include "VrApi.h"
-#include "sensor/ksensor/k_sensor.h"
+#include "VrApi_Types.h"
+#include "VrApi_Helpers.h"
 
 namespace gvr {
 
@@ -34,18 +35,33 @@ namespace gvr {
 class OculusHeadRotation;
 class KSensorHeadRotation;
 
-template <class R> class GVRActivityT : public OVR::VrAppInterface
+typedef struct
+{
+    int                     Width;
+    int                     Height;
+    int                     Multisamples;
+    int                     TextureSwapChainLength;
+    int                     TextureSwapChainIndex;
+    ovrTextureSwapChain *   ColorTextureSwapChain;
+    GLuint *                DepthBuffers;
+    GLuint *                FrameBuffers;
+} ovrFramebuffer;
+
+
+template <class R> class GVRActivityT
 {
 public:
-    GVRActivityT(JNIEnv& jni);
-    virtual ~GVRActivityT() {}
+    GVRActivityT(JNIEnv& jni, jobject activity);
+    virtual ~GVRActivityT() {
+        //todo
+    }
 
-    virtual void        Configure( OVR::ovrSettings & settings );
+//    virtual void        Configure( OVR::ovrSettings & settings );
     virtual void        OneTimeInit( const char * fromPackage, const char * launchIntentJSON, const char * launchIntentURI );
     virtual void        OneTimeShutdown();
-    virtual OVR::Matrix4f    DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms );
-    virtual OVR::Matrix4f    Frame( const OVR::VrFrame & vrFrame );
-    virtual bool        OnKeyEvent( const int keyCode, const int repeatCount, const OVR::KeyEventType eventType );
+//    virtual OVR::Matrix4f    DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms );
+//    virtual OVR::Matrix4f    Frame( const OVR::VrFrame & vrFrame );
+//    virtual bool        OnKeyEvent( const int keyCode, const int repeatCount, const OVR::KeyEventType eventType );
     bool                updateSensoredScene();
     void                setCameraRig(jlong cameraRig);
     void                initJni();
@@ -56,11 +72,11 @@ public:
     bool                forceScreenClear;
     bool                ModelLoaded;
 
-    OVR::OvrSceneView   Scene;
+    //OVR::OvrSceneView   Scene;
 
-    GVRViewManager*     viewManager;
+    GVRViewManager*     viewManager = nullptr;
 
-    Camera*             camera;
+    Camera*             camera = nullptr;
     CameraRig*          cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
     bool                sensoredSceneUpdated_ = false;
     R                   headRotationProvider_;
@@ -72,7 +88,7 @@ private:
     }
 
     JNIEnv*             uiJni;            // for use by the Java UI thread
-    OVR::Matrix4f       GetEyeView( const int eye, const float fovDegreesX, const float fovDegreesY ) const;
+//    OVR::Matrix4f       GetEyeView( const int eye, const float fovDegreesX, const float fovDegreesY ) const;
 
     jclass              activityClass = nullptr;    // must be looked up from main thread or FindClass() will fail
 
@@ -84,8 +100,6 @@ private:
     jmethodID           oneTimeInitMethodId = nullptr;
     jmethodID           oneTimeShutdownMethodId = nullptr;
 
-    jmethodID           drawFrameMethodId = nullptr;
-
     jmethodID           beforeDrawEyesMethodId = nullptr;
     jmethodID           drawEyeViewMethodId = nullptr;
     jmethodID           afterDrawEyesMethodId = nullptr;
@@ -96,6 +110,20 @@ private:
     jclass              GetGlobalClassReference( const char * className ) const;
     jmethodID           GetMethodID( const char * name, const char * signature );
     jmethodID           GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
+
+public:
+    void onSurfaceCreated();
+    void onDrawFrame();
+    void setupOculusJava(JNIEnv* env);
+
+    jobject activity_;
+
+    ovrJava oculusJava_;
+    ovrMobile* oculusMobile_ = nullptr;
+    long long frameIndex = 1;
+    ovrFramebuffer  FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
+    ovrMatrix4f     ProjectionMatrix;
+    ovrMatrix4f     TexCoordsTanAnglesMatrix;
 };
 
 
@@ -107,18 +135,18 @@ typedef GVRActivityT<OculusHeadRotation> GVRActivity;
 
 class KSensorHeadRotation {
 public:
-    void predict(GVRActivityT<KSensorHeadRotation>& gvrActivity, const ovrFrameParms&, const float time) {
-        if (nullptr != gvrActivity.cameraRig_) {
-            if (nullptr == sensor_.get()) {
-                gvrActivity.cameraRig_->predict(time);
-            } else {
-                sensor_->convertTo(rotationSensorData_);
-                gvrActivity.cameraRig_->predict(time, rotationSensorData_);
-            }
-        } else {
-            gvrActivity.cameraRig_->setRotation(glm::quat());
-        }
-    }
+//    void predict(GVRActivityT<KSensorHeadRotation>& gvrActivity, const ovrFrameParms&, const float time) {
+//        if (nullptr != gvrActivity.cameraRig_) {
+//            if (nullptr == sensor_.get()) {
+//                gvrActivity.cameraRig_->predict(time);
+//            } else {
+//                sensor_->convertTo(rotationSensorData_);
+//                gvrActivity.cameraRig_->predict(time, rotationSensorData_);
+//            }
+//        } else {
+//            gvrActivity.cameraRig_->setRotation(glm::quat());
+//        }
+//    }
     bool receivingUpdates() {
         return rotationSensorData_.hasBeenUpdated();
     }
@@ -141,22 +169,22 @@ public:
 class OculusHeadRotation {
     bool docked_ = false;
 public:
-    void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
-        if (docked_) {
-            ovrMobile* ovr = gvrActivity.app->GetOvrMobile();
-            ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
-            ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
-            tracking = vrapi_ApplyHeadModel(&headModelParms, &tracking);
-
-            const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
-            glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);
-            gvrActivity.cameraRig_->setRotation(glm::conjugate(glm::inverse(quat)));
-        } else if (nullptr != gvrActivity.cameraRig_) {
-            gvrActivity.cameraRig_->predict(time);
-        } else {
-            gvrActivity.cameraRig_->setRotation(glm::quat());
-        }
-    }
+//    void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
+//        if (docked_) {
+////            ovrMobile* ovr = gvrActivity.app->GetOvrMobile();
+////            ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
+////            ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
+////            tracking = vrapi_ApplyHeadModel(&headModelParms, &tracking);
+////
+////            const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
+////            glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);
+////            gvrActivity.cameraRig_->setRotation(glm::conjugate(glm::inverse(quat)));
+//        } else if (nullptr != gvrActivity.cameraRig_) {
+//            gvrActivity.cameraRig_->predict(time);
+//        } else {
+//            gvrActivity.cameraRig_->setRotation(glm::quat());
+//        }
+//    }
     bool receivingUpdates() {
         return docked_;
     }

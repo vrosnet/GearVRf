@@ -456,9 +456,10 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
         }
     }
 
-    void onDrawEyeView(int eye, float fovDegrees) {
+    void onDrawEyeView(int eye) {
+        Log.i("mmarinov", "onDrawEyeView : " + eye);
         mCurrentEye = eye;
-        if (!(mSensoredScene == null || !mMainScene.equals(mSensoredScene))) {
+        /*if (!(mSensoredScene == null || !mMainScene.equals(mSensoredScene)))*/ {
             GVRCameraRig mainCameraRig = mMainScene.getMainCameraRig();
 
             if (eye == 1) {
@@ -528,7 +529,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
 
     /** Called once per frame, before {@link #onDrawEyeView(int, float)}. */
     void onDrawFrame() {
-
         GVRPerspectiveCamera centerCamera = mMainScene.getMainCameraRig().getCenterCamera();
         cull(mMainScene.getNative(), centerCamera.getNative(), mRenderBundle.getMaterialShaderManager().getNative());
 

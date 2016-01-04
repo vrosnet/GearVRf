@@ -15,25 +15,30 @@
 
 package org.gearvrf;
 
+import javax.microedition.khronos.egl.EGL10;
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.egl.EGLContext;
+import javax.microedition.khronos.egl.EGLDisplay;
+import javax.microedition.khronos.egl.EGLSurface;
+import javax.microedition.khronos.opengles.GL10;
+
 import org.gearvrf.scene_objects.GVRViewSceneObject;
 import org.gearvrf.scene_objects.view.GVRView;
 import org.gearvrf.utility.DockEventReceiver;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
 
-import com.oculus.vrappframework.VrActivity;
-
 import android.app.Activity;
-import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.opengl.GLSurfaceView;
+import android.opengl.GLSurfaceView.EGLConfigChooser;
+import android.opengl.GLSurfaceView.Renderer;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 
 /**
  * The typical GVRF application will have a single Android {@link Activity},
@@ -45,7 +50,7 @@ import android.view.WindowManager;
  * of your scene graph. {@code GVRActivity} also gives GVRF a full-screen window
  * in landscape orientation with no title bar.
  */
-public class GVRActivity extends VrActivity {
+public class GVRActivity extends Activity {
 
     private static final String TAG = Log.tag(GVRActivity.class);
 
@@ -66,13 +71,15 @@ public class GVRActivity extends VrActivity {
     // Group of views that are going to be drawn
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
+    private GLSurfaceView mSurfaceView;
 
     static {
         System.loadLibrary("gvrf");
     }
 
-    public static native long nativeSetAppInterface(VrActivity act,
-            String fromPackageName, String commandString, String uriString);
+    public static native long onCreate(GVRActivity act);
+    public static native void onSurfaceCreated(long ptr);
+    public static native void onDrawFrame(long ptr);
 
     static native void nativeSetCamera(long appPtr, long camera);
     static native void nativeSetCameraRig(long appPtr, long cameraRig);
@@ -84,31 +91,46 @@ public class GVRActivity extends VrActivity {
         /*
          * Removes the title bar and the status bar.
          */
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+//        requestWindowFeature(Window.FEATURE_NO_TITLE);
+//        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+//                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         mAppSettings = new VrAppSettings();
         super.onCreate(savedInstanceState);
-
-        Intent intent = getIntent();
-        String commandString = VrActivity.getCommandStringFromIntent(intent);
-        String fromPackageNameString = VrActivity
-                .getPackageStringFromIntent(intent);
-        String uriString = VrActivity.getUriStringFromIntent(intent);
-        
-        mPtr = nativeSetAppInterface(this, fromPackageNameString,
-                commandString, uriString);
-
-        setAppPtr(mPtr);
-
+//
         mDockEventReceiver = new DockEventReceiver(this, mRunOnDock, mRunOnUndock);
+//        mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
 
-        mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
+        mPtr = onCreate(this);
+
+        createPbufferContext();
+
+        mSurfaceView = new GLSurfaceView(this);
+        mSurfaceView.setEGLContextClientVersion(3);
+        mSurfaceView.setEGLConfigChooser(configChooser);
+
+        mSurfaceView.setRenderer(new Renderer() {
+            @Override
+            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+                mGVRViewManager.onSurfaceCreated();
+                GVRActivity.onSurfaceCreated(mPtr);
+            }
+            @Override
+            public void onSurfaceChanged(GL10 gl, int width, int height) {
+                
+            }
+            @Override
+            public void onDrawFrame(GL10 gl) {
+                //Log.i("mmarinov", "java:onDrawFrame : ");
+                mGVRViewManager.onDrawFrame();
+                GVRActivity.onDrawFrame(mPtr);
+            }
+        });
+        setContentView(mSurfaceView);
     }
 
-    protected void onInitAppSettings(VrAppSettings appSettings) {
 
+    protected void onInitAppSettings(VrAppSettings appSettings) {
     }
 
     public VrAppSettings getAppSettings(){
@@ -124,12 +146,18 @@ public class GVRActivity extends VrActivity {
             mDockEventReceiver.stop();
         }
 
+        if (null != mSurfaceView) {
+            mSurfaceView.onPause();
+        }
         super.onPause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (null != mSurfaceView) {
+            mSurfaceView.onResume();
+        }
         if (mGVRViewManager != null) {
             mGVRViewManager.onResume();
         }
@@ -222,7 +250,7 @@ public class GVRActivity extends VrActivity {
             return true;
         }
 
-        return false;
+        return true;
     }
 
     public boolean isNote4() {
@@ -249,13 +277,9 @@ public class GVRActivity extends VrActivity {
     public long getAppPtr(){
         return mPtr;
     }
-    
-    void drawFrame() {
-        mGVRViewManager.onDrawFrame();
-    }
 
     void oneTimeInit() {
-        mGVRViewManager.onSurfaceCreated();
+//        mGVRViewManager.onSurfaceCreated();
         Log.e(TAG, " oneTimeInit from native layer");
     }
 
@@ -267,62 +291,69 @@ public class GVRActivity extends VrActivity {
     }
 
     void beforeDrawEyes() {
-        mGVRViewManager.beforeDrawEyes();
+//        mGVRViewManager.beforeDrawEyes();
     }
 
-    void onDrawEyeView(int eye, float fovDegrees) {
-        mGVRViewManager.onDrawEyeView(eye, fovDegrees);
+    void onDrawEyeView(int eye) {
+        try {
+            mGVRViewManager.onDrawEyeView(eye);
+        } catch (final Exception e) {
+            Log.i("mmarinov", "onDrawEyeView : exception: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     void afterDrawEyes() {
-        mGVRViewManager.afterDrawEyes();
+//        mGVRViewManager.afterDrawEyes();
     }
 
     void setCamera(GVRCamera camera) {
         mCamera = camera;
-
-        nativeSetCamera(getAppPtr(), camera.getNative());
+        nativeSetCamera(mPtr, camera.getNative());
     }
 
     void setCameraRig(GVRCameraRig cameraRig) {
-        nativeSetCameraRig(getAppPtr(), cameraRig.getNative());
+        nativeSetCameraRig(mPtr, cameraRig.getNative());
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        boolean handled = mGVRViewManager.dispatchKeyEvent(event);
-        if (handled == false) {
-            handled = super.dispatchKeyEvent(event);// VrActivity's
-        }
-        return handled;
+//        boolean handled = mGVRViewManager.dispatchKeyEvent(event);
+//        if (handled == false) {
+//            handled = super.dispatchKeyEvent(event);// VrActivity's
+//        }
+//        return handled;
+        return false;
     }
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
-        if (handled == false) {
-            handled = super.dispatchGenericMotionEvent(event);// VrActivity's
-        }
-        return handled;
+//        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
+//        if (handled == false) {
+//            handled = super.dispatchGenericMotionEvent(event);// VrActivity's
+//        }
+//        return handled;
+        return false;
     }
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
-
-        if (handled == false) {
-            handled = super.dispatchTouchEvent(event);// VrActivity's
-        }
-        /*
-         * Situation: while the super class VrActivity is implementing
-         * dispatchTouchEvent() without calling its own super
-         * dispatchTouchEvent(), we still need to call the
-         * VRTouchPadGestureDetector onTouchEvent. Call it here, similar way
-         * like in place of viewGroup.onInterceptTouchEvent()
-         */
-        onTouchEvent(event);
-
-        return handled;
+//        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
+//
+//        if (handled == false) {
+//            handled = super.dispatchTouchEvent(event);// VrActivity's
+//        }
+//        /*
+//         * Situation: while the super class VrActivity is implementing
+//         * dispatchTouchEvent() without calling its own super
+//         * dispatchTouchEvent(), we still need to call the
+//         * VRTouchPadGestureDetector onTouchEvent. Call it here, similar way
+//         * like in place of viewGroup.onInterceptTouchEvent()
+//         */
+//        onTouchEvent(event);
+//
+//        return handled;
+        return false;
     }
 
     boolean onKeyEventNative(int keyCode, int eventType) {
@@ -369,7 +400,8 @@ public class GVRActivity extends VrActivity {
     }
 
     boolean updateSensoredScene() {
-        return mGVRViewManager.updateSensoredScene();
+//        return mGVRViewManager.updateSensoredScene();
+        return false;
     }
 
     /**
@@ -406,4 +438,119 @@ public class GVRActivity extends VrActivity {
     };
 
     private DockEventReceiver mDockEventReceiver;
+
+
+    private void createPbufferContext() {
+        //pbuffer surface
+        EGL10 egl = (EGL10) EGLContext.getEGL();
+
+        EGLDisplay eglDisplay = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+        int[] version = new int[2];
+        if(!egl.eglInitialize(eglDisplay, version)) {
+            throw new RuntimeException("eglInitialize failed");
+        }
+
+        EGLConfig config = configChooser.chooseConfig(egl, eglDisplay);
+
+        final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
+        int[] contextAttribs =
+        {
+            EGL_CONTEXT_CLIENT_VERSION, 3,
+            EGL10.EGL_NONE
+        };
+
+        EGLContext context = egl.eglCreateContext( eglDisplay, config, EGL10.EGL_NO_CONTEXT, contextAttribs);
+        if (context == EGL10.EGL_NO_CONTEXT )
+        {
+            throw new RuntimeException("eglCreateContext failed; error 0x" + Integer.toHexString(egl.eglGetError()));
+        }
+        int[] surfaceAttribs = {
+            EGL10.EGL_WIDTH, 16,
+            EGL10.EGL_HEIGHT, 16,
+            EGL10.EGL_NONE
+        };
+
+        EGLSurface pbufferSurface = egl.eglCreatePbufferSurface( eglDisplay, config, surfaceAttribs);
+        if ( EGL10.EGL_NO_SURFACE == pbufferSurface)
+        {
+            egl.eglDestroyContext( eglDisplay, context );
+            throw new RuntimeException("Pixel buffer surface not created; error 0x" + Integer.toHexString(egl.eglGetError()));
+        }
+        if (!egl.eglMakeCurrent( eglDisplay, pbufferSurface, pbufferSurface, context ))
+        {
+            egl.eglDestroySurface( eglDisplay, pbufferSurface);
+            egl.eglDestroyContext( eglDisplay, context );
+            throw new RuntimeException("Failed to make current context; error 0x" + Integer.toHexString(egl.eglGetError()));
+        }
+    }
+
+    EGLConfigChooser configChooser = new EGLConfigChooser() {
+        @Override
+        public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
+            int[] numberConfigs = new int[1];
+            if (!egl.eglGetConfigs(display, null, 0, numberConfigs)) {
+                throw new RuntimeException("Unable to retrieve number of egl configs available.");
+            }
+            EGLConfig[] configs = new EGLConfig[numberConfigs[0]];
+            if (!egl.eglGetConfigs(display, configs, configs.length, numberConfigs)) {
+                throw new RuntimeException("Unable to retrieve egl configs available.");
+            }
+
+            int[] configAttribs =
+                {
+                    EGL10.EGL_ALPHA_SIZE, 8, // need alpha for the multi-pass timewarp compositor
+                    EGL10.EGL_BLUE_SIZE,  8,
+                    EGL10.EGL_GREEN_SIZE, 8,
+                    EGL10.EGL_RED_SIZE,   8,
+                    EGL10.EGL_DEPTH_SIZE, 0,
+                    EGL10.EGL_SAMPLES,    0,
+                    EGL10.EGL_NONE
+                };
+            
+
+            EGLConfig config = null;
+            for (int i = 0; i < numberConfigs[0]; ++i)
+            {
+                int[] value = new int[1];
+
+                final int EGL_OPENGL_ES3_BIT_KHR = 0x0040;
+                if (!egl.eglGetConfigAttrib(display, configs[i], EGL10.EGL_RENDERABLE_TYPE, value)) {
+                    Log.i(TAG, "eglGetConfigAttrib for EGL_RENDERABLE_TYPE failed");
+                    continue;
+                }
+                if ( ( value[0] & EGL_OPENGL_ES3_BIT_KHR ) != EGL_OPENGL_ES3_BIT_KHR )
+                {
+                    continue;
+                }
+
+                if (!egl.eglGetConfigAttrib(display, configs[i], EGL10.EGL_SURFACE_TYPE, value )) {
+                    Log.i(TAG, "eglGetConfigAttrib for EGL_SURFACE_TYPE failed");
+                    continue;
+                }
+                if ( ( value[0] & ( EGL10.EGL_WINDOW_BIT | EGL10.EGL_PBUFFER_BIT ) ) != ( EGL10.EGL_WINDOW_BIT | EGL10.EGL_PBUFFER_BIT ) )
+                {
+                    continue;
+                }
+
+                int j = 0;
+                for ( ; configAttribs[j] != EGL10.EGL_NONE; j += 2 )
+                {
+                    if (!egl.eglGetConfigAttrib(display, configs[i], configAttribs[j], value )) {
+                        Log.i(TAG, "eglGetConfigAttrib for " + configAttribs[j] + " failed");
+                        continue;
+                    }
+                    if ( value[0] != configAttribs[j + 1] )
+                    {
+                        break;
+                    }
+                }
+                if ( configAttribs[j] == EGL10.EGL_NONE )
+                {
+                    config = configs[i];
+                    break;
+                }
+            }
+            return config;
+        }
+    };
 }
