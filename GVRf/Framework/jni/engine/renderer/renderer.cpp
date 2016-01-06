@@ -479,6 +479,7 @@ void Renderer::renderCamera(Scene* scene, Camera* camera,
     GLint viewport[4];
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &curFBO);
     glGetIntegerv(GL_VIEWPORT, viewport);
+    LOGI("mmarinov:Renderer::renderCamera: curFBO %d", curFBO);
 
     renderCamera(scene, camera, curFBO, viewport[0], viewport[1], viewport[2],
             viewport[3], shader_manager, post_effect_shader_manager,

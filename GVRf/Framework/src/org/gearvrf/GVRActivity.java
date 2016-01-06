@@ -15,12 +15,14 @@
 
 package org.gearvrf;
 
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
-import javax.microedition.khronos.opengles.GL10;
 
 import org.gearvrf.scene_objects.GVRViewSceneObject;
 import org.gearvrf.scene_objects.view.GVRView;
@@ -32,11 +34,17 @@ import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.EGLConfigChooser;
-import android.opengl.GLSurfaceView.Renderer;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.HandlerThread;
+import android.view.Choreographer;
+import android.view.Choreographer.FrameCallback;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceHolder.Callback;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -72,22 +80,28 @@ public class GVRActivity extends Activity {
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
     private GLSurfaceView mSurfaceView;
+    private SurfaceView sv;
 
     static {
         System.loadLibrary("gvrf");
     }
 
-    public static native long onCreate(GVRActivity act);
-    public static native void onSurfaceCreated(long ptr);
-    public static native void onDrawFrame(long ptr);
+    public static native long nativeOnCreate(GVRActivity act);
+    public static native void nativeOnSurfaceCreated(long ptr, Surface s);
+    public static native void nativeOnDrawFrame(long ptr);
+    public static native void nativeOnPause(long ptr);
 
     static native void nativeSetCamera(long appPtr, long camera);
     static native void nativeSetCameraRig(long appPtr, long cameraRig);
     static native void nativeOnDock(long appPtr);
     static native void nativeOnUndock(long appPtr);
+    ReentrantLock lock = new ReentrantLock();
+    Condition condition = lock.newCondition();
+    volatile boolean running;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         /*
          * Removes the title bar and the status bar.
          */
@@ -101,34 +115,131 @@ public class GVRActivity extends Activity {
         mDockEventReceiver = new DockEventReceiver(this, mRunOnDock, mRunOnUndock);
 //        mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
 
-        mPtr = onCreate(this);
+        mPtr = nativeOnCreate(this);
 
-        createPbufferContext();
-
-        mSurfaceView = new GLSurfaceView(this);
-        mSurfaceView.setEGLContextClientVersion(3);
-        mSurfaceView.setEGLConfigChooser(configChooser);
-
-        mSurfaceView.setRenderer(new Renderer() {
+        sv = new SurfaceView(this);
+        setContentView(sv);
+        sv.getHolder().addCallback(new Callback() {
             @Override
-            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-                mGVRViewManager.onSurfaceCreated();
-                GVRActivity.onSurfaceCreated(mPtr);
-            }
-            @Override
-            public void onSurfaceChanged(GL10 gl, int width, int height) {
+            public void surfaceDestroyed(SurfaceHolder holder) {
+                // TODO Auto-generated method stub
                 
             }
+            
             @Override
-            public void onDrawFrame(GL10 gl) {
-                //Log.i("mmarinov", "java:onDrawFrame : ");
-                mGVRViewManager.onDrawFrame();
-                GVRActivity.onDrawFrame(mPtr);
+            public void surfaceCreated(final SurfaceHolder holder) {
+                Runnable r = new Runnable() {
+                    @Override
+                    public void run() {
+                        lock.lock();
+                        try {
+                            running = true;
+                            createPbufferContext(holder);
+                            Log.i("mmarinov", "run : created");
+                            nativeOnSurfaceCreated(mPtr, holder.getSurface());
+                            Log.i("mmarinov", "run : native created");
+
+                            mGVRViewManager.onSurfaceCreated();
+                            startChoreographerThreadIfNotStarted();
+
+                            while (running) {
+                                condition.await();
+                                nativeOnDrawFrame(mPtr);
+                            }
+                        } catch(final InterruptedException e){
+                            Log.i("mmarinov", "interrupted: ");
+                        } finally {
+                            lock.unlock();
+                        }
+                        Log.i("mmarinov", "run : native on pause");
+                        nativeOnPause(mPtr);
+                        Log.i("mmarinov", "run : native on pause - done");
+                    }
+                };
+                new Thread(r, "gl-for-sv-"+Integer.toHexString(sv.hashCode())).start();
+            }
+            
+            @Override
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                // TODO Auto-generated method stub
+                
             }
         });
-        setContentView(mSurfaceView);
+
+
+//        mSurfaceView = new GLSurfaceView(this);
+//        mSurfaceView.setEGLContextClientVersion(3);
+//        mSurfaceView.setEGLConfigChooser(configChooser);
+
+//        mSurfaceView.setRenderer(new Renderer() {
+//            @Override
+//            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+//                Log.i("mmarinov", "onSurfaceCreated : ");
+//                //mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+////                mGVRViewManager.onSurfaceCreated();
+////                GVRActivity.onSurfaceCreated(mPtr);
+////
+////                int width = 2560, height = 1440;
+////                width = getAppSettings().getFramebufferPixelsWide();
+////                height = getAppSettings().getFramebufferPixelsHigh();
+////                mSurfaceView.getHolder().setFixedSize(width, height);
+////
+////                startChoreographerThreadIfNotStarted();
+////                Log.i("mmarinov", "onSurfaceCreated : done");
+//            }
+//            @Override
+//            public void onSurfaceChanged(GL10 gl, int ignored1, int ignored2) {
+//                Log.i("mmarinov", "onSurfaceChanged : ");
+//                mGVRViewManager.onSurfaceCreated();
+//                GVRActivity.onSurfaceCreated(mPtr);
+//
+//                int width = 2560, height = 1440;
+//                width = getAppSettings().getFramebufferPixelsWide();
+//                height = getAppSettings().getFramebufferPixelsHigh();
+//                mSurfaceView.getHolder().setFixedSize(width, height);
+//
+//                startChoreographerThreadIfNotStarted();
+//                Log.i("mmarinov", "onSurfaceChanged : done");
+//            }
+//            @Override
+//            public void onDrawFrame(GL10 gl) {
+//                Log.i("mmarinov", "java:onDrawFrame : ");
+//                mGVRViewManager.onDrawFrame();
+//
+//                mGVRViewManager.beforeDrawEyes();
+//                GVRActivity.onDrawFrame(mPtr);
+//                mGVRViewManager.afterDrawEyes();
+//            }
+//        });
+//        mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+//        setContentView(mSurfaceView);
     }
 
+    private HandlerThread choreographerThread;
+    private final void startChoreographerThreadIfNotStarted() {
+        if (null == choreographerThread) {
+            choreographerThread = new HandlerThread(
+                    "gvrf-choreographer-" + Integer.toHexString(hashCode())) {
+                @Override
+                protected void onLooperPrepared() {
+                    // Force callbacks from the Choreographer to happen off the
+                    // UI thread.
+                    Choreographer.getInstance().removeFrameCallback(frameCallback);
+                    Choreographer.getInstance().postFrameCallback(frameCallback);
+                }
+
+                @Override
+                public void run() {
+                    try {
+                        super.run();
+                    } finally {
+                        Choreographer.getInstance().removeFrameCallback(frameCallback);
+                    }
+                }
+            };
+            choreographerThread.start();
+        }
+    }
 
     protected void onInitAppSettings(VrAppSettings appSettings) {
     }
@@ -145,10 +256,19 @@ public class GVRActivity extends Activity {
         if (null != mDockEventReceiver) {
             mDockEventReceiver.stop();
         }
-
         if (null != mSurfaceView) {
             mSurfaceView.onPause();
         }
+
+        Log.i("mmarinov", "onPause : 1");
+        running = false;
+        lock.lock();
+        try {
+            condition.signal();
+        } finally {
+            lock.unlock();
+        }
+        Log.i("mmarinov", "onPause : 2");
         super.onPause();
     }
 
@@ -250,7 +370,7 @@ public class GVRActivity extends Activity {
             return true;
         }
 
-        return true;
+        return false;
     }
 
     public boolean isNote4() {
@@ -278,20 +398,11 @@ public class GVRActivity extends Activity {
         return mPtr;
     }
 
-    void oneTimeInit() {
-//        mGVRViewManager.onSurfaceCreated();
-        Log.e(TAG, " oneTimeInit from native layer");
-    }
-
     void oneTimeShutDown() {
         Log.e(TAG, " oneTimeShutDown from native layer");
 
         GVRHybridObject.closeAll();
         NativeGLDelete.processQueues();
-    }
-
-    void beforeDrawEyes() {
-//        mGVRViewManager.beforeDrawEyes();
     }
 
     void onDrawEyeView(int eye) {
@@ -301,10 +412,6 @@ public class GVRActivity extends Activity {
             Log.i("mmarinov", "onDrawEyeView : exception: " + e.getMessage());
             e.printStackTrace();
         }
-    }
-
-    void afterDrawEyes() {
-//        mGVRViewManager.afterDrawEyes();
     }
 
     void setCamera(GVRCamera camera) {
@@ -440,8 +547,9 @@ public class GVRActivity extends Activity {
     private DockEventReceiver mDockEventReceiver;
 
 
-    private void createPbufferContext() {
-        //pbuffer surface
+    EGLSurface pbufferSurface;
+    EGLSurface mainSurface;
+    private void createPbufferContext(SurfaceHolder holder) {
         EGL10 egl = (EGL10) EGLContext.getEGL();
 
         EGLDisplay eglDisplay = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
@@ -470,7 +578,7 @@ public class GVRActivity extends Activity {
             EGL10.EGL_NONE
         };
 
-        EGLSurface pbufferSurface = egl.eglCreatePbufferSurface( eglDisplay, config, surfaceAttribs);
+        pbufferSurface = egl.eglCreatePbufferSurface( eglDisplay, config, surfaceAttribs);
         if ( EGL10.EGL_NO_SURFACE == pbufferSurface)
         {
             egl.eglDestroyContext( eglDisplay, context );
@@ -481,6 +589,23 @@ public class GVRActivity extends Activity {
             egl.eglDestroySurface( eglDisplay, pbufferSurface);
             egl.eglDestroyContext( eglDisplay, context );
             throw new RuntimeException("Failed to make current context; error 0x" + Integer.toHexString(egl.eglGetError()));
+        }
+        Log.i("mmarinov", "createPbufferContext : pbuffer " + Integer.toHexString(pbufferSurface.hashCode()));
+
+        //////////
+        {
+            int[] surfaceAttribs2 = { EGL10.EGL_NONE };
+            mainSurface = egl.eglCreateWindowSurface( eglDisplay, config, holder, surfaceAttribs2);
+            if ( mainSurface == EGL10.EGL_NO_SURFACE )
+            {
+                Log.e(TAG, "eglCreateWindowSurface() failed: 0x%X", egl.eglGetError());
+                return;
+            }
+        if (!egl.eglMakeCurrent( eglDisplay, mainSurface, mainSurface, context )) {
+            Log.e(TAG, "eglMakeCurrent() failed: 0x%X", egl.eglGetError());
+            return;
+        }
+        Log.i("mmarinov", "createPbufferContext : mainSurface " + Integer.toHexString(mainSurface.hashCode()));
         }
     }
 
@@ -551,6 +676,27 @@ public class GVRActivity extends Activity {
                 }
             }
             return config;
+        }
+    };
+
+    int i=0;
+    private FrameCallback frameCallback = new FrameCallback() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
+            while (i++ < 3) {
+                Log.i("mmarinov", "doFrame : ");
+            }
+            
+            //mSurfaceView.requestRender();
+
+            lock.lock();
+            try {
+                condition.signal();
+            } finally {
+                lock.unlock();
+            }
+
+            Choreographer.getInstance().postFrameCallback(this);
         }
     };
 }

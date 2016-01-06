@@ -28,6 +28,8 @@
 #include "VrApi_Types.h"
 #include "VrApi_Helpers.h"
 
+#include <android/native_window_jni.h>
+
 namespace gvr {
 
 //#define USE_FEATURE_KSENSOR
@@ -57,7 +59,6 @@ public:
     }
 
 //    virtual void        Configure( OVR::ovrSettings & settings );
-    virtual void        OneTimeInit( const char * fromPackage, const char * launchIntentJSON, const char * launchIntentURI );
     virtual void        OneTimeShutdown();
 //    virtual OVR::Matrix4f    DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms );
 //    virtual OVR::Matrix4f    Frame( const OVR::VrFrame & vrFrame );
@@ -97,12 +98,9 @@ private:
 
     jmethodID           getAppSettingsMethodId = nullptr;
 
-    jmethodID           oneTimeInitMethodId = nullptr;
     jmethodID           oneTimeShutdownMethodId = nullptr;
 
-    jmethodID           beforeDrawEyesMethodId = nullptr;
     jmethodID           drawEyeViewMethodId = nullptr;
-    jmethodID           afterDrawEyesMethodId = nullptr;
 
     jmethodID           onKeyEventNativeMethodId = nullptr;
     jmethodID           updateSensoredSceneMethodId = nullptr;
@@ -112,9 +110,10 @@ private:
     jmethodID           GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
 
 public:
-    void onSurfaceCreated();
+    void onSurfaceCreated(ANativeWindow* nativeWindow);
     void onDrawFrame();
     void setupOculusJava(JNIEnv* env);
+    void onPause();
 
     jobject activity_;
 
