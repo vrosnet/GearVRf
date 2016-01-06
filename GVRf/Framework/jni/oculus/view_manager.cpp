@@ -113,14 +113,6 @@ void GVRViewManager::renderCamera(Scene* scene,
     gettimeofday(&start, NULL);
 #endif
 
-    LOGI("mmarinov:GVRViewManager::renderCamera: 1");
-    if (camera->render_mask() == 1) {
-        glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
-    } else {
-        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-    }
-    glClear (GL_COLOR_BUFFER_BIT);
-
     Renderer::renderCamera(scene, camera, shader_manager,
             post_effect_shader_manager, post_effect_render_texture_a,
             post_effect_render_texture_b);

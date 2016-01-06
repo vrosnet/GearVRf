@@ -20,6 +20,7 @@
 #include "renderer.h"
 
 #include "glm/gtc/matrix_inverse.hpp"
+#include "glm/gtx/string_cast.hpp"
 
 #include "eglextension/tiledrendering/tiled_rendering_enhancer.h"
 #include "objects/material.h"
@@ -91,29 +92,31 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
     numberTriangles = 0;
 
     glm::mat4 view_matrix = camera->getViewMatrix();
+    //LOGI("mmarinov:Renderer::renderCamera: vm: %s", glm::to_string(view_matrix).c_str());
     glm::mat4 projection_matrix = camera->getProjectionMatrix();
+    //LOGI("mmarinov:Renderer::renderCamera: pm: %s", glm::to_string(projection_matrix).c_str());
     glm::mat4 vp_matrix = glm::mat4(projection_matrix * view_matrix);
 
     std::vector<PostEffectData*> post_effects = camera->post_effect_data();
 
-    glEnable (GL_DEPTH_TEST);
-    glDepthFunc (GL_LEQUAL);
-    glEnable (GL_CULL_FACE);
-    glFrontFace (GL_CCW);
-    glCullFace (GL_BACK);
-    glEnable (GL_BLEND);
-    glBlendEquation (GL_FUNC_ADD);
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable (GL_POLYGON_OFFSET_FILL);
+    GL_V(glEnable (GL_DEPTH_TEST));
+    GL_V(glDepthFunc (GL_LEQUAL));
+    GL_V(glEnable (GL_CULL_FACE));
+    GL_V(glFrontFace (GL_CCW));
+    GL_V(glCullFace (GL_BACK));
+    GL_V(glEnable (GL_BLEND));
+    GL_V(glBlendEquation (GL_FUNC_ADD));
+    GL_V(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+    GL_V(glDisable (GL_POLYGON_OFFSET_FILL));
 
     if (post_effects.size() == 0) {
-        glBindFramebuffer(GL_FRAMEBUFFER, framebufferId);
-        glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+        GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
+        GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
 
-        glClearColor(camera->background_color_r(),
+        GL_V(glClearColor(camera->background_color_r(),
                 camera->background_color_g(), camera->background_color_b(),
-                camera->background_color_a());
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+                camera->background_color_a()));
+        GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
 
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
@@ -124,15 +127,15 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
         RenderTexture* texture_render_texture = post_effect_render_texture_a;
         RenderTexture* target_render_texture;
 
-        glBindFramebuffer(GL_FRAMEBUFFER,
-                texture_render_texture->getFrameBufferId());
-        glViewport(0, 0, texture_render_texture->width(),
-                texture_render_texture->height());
+        GL_V(glBindFramebuffer(GL_FRAMEBUFFER,
+                texture_render_texture->getFrameBufferId()));
+        GL_V(glViewport(0, 0, texture_render_texture->width(),
+                texture_render_texture->height()));
 
-        glClearColor(camera->background_color_r(),
+        GL_V(glClearColor(camera->background_color_r(),
                 camera->background_color_g(), camera->background_color_b(),
-                camera->background_color_a());
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+                camera->background_color_a()));
+        GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
 
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
@@ -140,8 +143,8 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
                     camera->render_mask(), shader_manager);
         }
 
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_CULL_FACE);
+        GL_V(glDisable(GL_DEPTH_TEST));
+        GL_V(glDisable(GL_CULL_FACE));
 
         for (int i = 0; i < post_effects.size() - 1; ++i) {
             if (i % 2 == 0) {
@@ -159,9 +162,9 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
                     post_effects[i], post_effect_shader_manager);
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, framebufferId);
-        glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+        GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
+        GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
+        GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
         renderPostEffectData(camera, texture_render_texture,
                 post_effects.back(), post_effect_shader_manager);
     }
@@ -479,7 +482,8 @@ void Renderer::renderCamera(Scene* scene, Camera* camera,
     GLint viewport[4];
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &curFBO);
     glGetIntegerv(GL_VIEWPORT, viewport);
-    LOGI("mmarinov:Renderer::renderCamera: curFBO %d", curFBO);
+    LOGI("mmarinov:Renderer::renderCamera: curFBO %d %d %d %d %d", curFBO, viewport[0],viewport[1],
+            viewport[2], viewport[3]);
 
     renderCamera(scene, camera, curFBO, viewport[0], viewport[1], viewport[2],
             viewport[3], shader_manager, post_effect_shader_manager,

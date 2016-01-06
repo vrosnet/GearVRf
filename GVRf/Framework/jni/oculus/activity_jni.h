@@ -83,11 +83,6 @@ public:
     R                   headRotationProvider_;
 
 private:
-    glm::mat4           mvp_matrix;
-    void                SetMVPMatrix(glm::mat4 mvp){
-        viewManager->mvp_matrix = mvp;
-    }
-
     JNIEnv*             uiJni;            // for use by the Java UI thread
 //    OVR::Matrix4f       GetEyeView( const int eye, const float fovDegreesX, const float fovDegreesY ) const;
 
@@ -168,22 +163,22 @@ public:
 class OculusHeadRotation {
     bool docked_ = false;
 public:
-//    void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
-//        if (docked_) {
-////            ovrMobile* ovr = gvrActivity.app->GetOvrMobile();
-////            ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
-////            ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
-////            tracking = vrapi_ApplyHeadModel(&headModelParms, &tracking);
-////
-////            const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
-////            glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);
-////            gvrActivity.cameraRig_->setRotation(glm::conjugate(glm::inverse(quat)));
-//        } else if (nullptr != gvrActivity.cameraRig_) {
-//            gvrActivity.cameraRig_->predict(time);
-//        } else {
-//            gvrActivity.cameraRig_->setRotation(glm::quat());
-//        }
-//    }
+    void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
+        if (docked_) {
+            ovrMobile* ovr = gvrActivity.oculusMobile_;
+            ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
+            ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
+            tracking = vrapi_ApplyHeadModel(&headModelParms, &tracking);
+
+            const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
+            glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);
+            gvrActivity.cameraRig_->setRotation(glm::conjugate(glm::inverse(quat)));
+        } else if (nullptr != gvrActivity.cameraRig_) {
+            gvrActivity.cameraRig_->predict(time);
+        } else {
+            gvrActivity.cameraRig_->setRotation(glm::quat());
+        }
+    }
     bool receivingUpdates() {
         return docked_;
     }

@@ -283,6 +283,7 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     void beforeDrawEyes() {
+        Log.i("mmarinov", "beforeDrawEyes : ");
         mFrameHandler.beforeDrawEyes();
     }
 
@@ -457,7 +458,7 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     void onDrawEyeView(int eye) {
-        Log.i("mmarinov", "onDrawEyeView : " + eye);
+        Log.i("mmarinov", "onDrawEyeView : "+eye);
         mCurrentEye = eye;
         /*if (!(mSensoredScene == null || !mMainScene.equals(mSensoredScene)))*/ {
             GVRCameraRig mainCameraRig = mMainScene.getMainCameraRig();
@@ -540,6 +541,8 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     void afterDrawEyes() {
+        Log.i("mmarinov", "afterDrawEyes : ");
+
         // Execute post-rendering tasks (after drawing eyes, but
         // before after draw eye handlers)
         synchronized (mRunnablesPostRender) {
@@ -756,6 +759,7 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     boolean updateSensoredScene() {
+        Log.i("mmarinov", "updateSensoredScene : java");
         if (mSensoredScene != null && mMainScene.equals(mSensoredScene)) {
             return true;
         }

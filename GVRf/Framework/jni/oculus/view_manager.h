@@ -51,8 +51,6 @@ public:
                         RenderTexture* post_effect_render_texture_a,
                         RenderTexture* post_effect_render_texture_b);
 
-    glm::mat4 mvp_matrix;
-
     // collect data
     float  m_fps = 0;
     int    m_frameRendered = 0;

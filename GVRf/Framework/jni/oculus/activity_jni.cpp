@@ -100,9 +100,6 @@ JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnUndock(
 }
 
 
-
-#define GL( func )      func;
-
 void ovrFramebuffer_Clear( ovrFramebuffer * frameBuffer )
 {
     frameBuffer->Width = 0;
@@ -231,10 +228,10 @@ void ovrFramebuffer_Resolve( ovrFramebuffer * frameBuffer )
 {
     // Discard the depth buffer, so the tiler won't need to write it back out to memory.
     const GLenum depthAttachment[1] = { GL_DEPTH_ATTACHMENT };
-    glInvalidateFramebuffer( GL_FRAMEBUFFER, 1, depthAttachment );
+    GL( glInvalidateFramebuffer( GL_FRAMEBUFFER, 1, depthAttachment ) );
 
     // Flush this frame worth of commands.
-    glFlush();
+    GL(glFlush());
 }
 
 void ovrFramebuffer_Advance( ovrFramebuffer * frameBuffer )
@@ -266,7 +263,7 @@ template <class R> void GVRActivityT<R>::initJni() {
     drawEyeViewMethodId = GetMethodID("onDrawEyeView", "(I)V");
 
 //    onKeyEventNativeMethodId = GetMethodID("onKeyEventNative", "(II)Z");
-//    updateSensoredSceneMethodId = GetMethodID("updateSensoredScene", "()Z");
+    updateSensoredSceneMethodId = GetMethodID("updateSensoredScene", "()Z");
     //getAppSettingsMethodId = GetMethodID("getAppSettings", "()Lorg/gearvrf/utility/VrAppSettings;");
 
 
@@ -633,7 +630,8 @@ template <class R> void GVRActivityT<R>::OneTimeShutdown()
 //}
 
 template <class R> bool GVRActivityT<R>::updateSensoredScene() {
-//    return app->GetJava()->Env->CallBooleanMethod(app->GetJava()->ActivityObject, updateSensoredSceneMethodId);
+    LOGI("mmarinov:updateSensoredScene: ");
+    return uiJni->CallBooleanMethod(oculusJava_.ActivityObject, updateSensoredSceneMethodId);
 }
 
 template <class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
@@ -653,13 +651,11 @@ template <class R> void GVRActivityT<R>::onSurfaceCreated(ANativeWindow* nativeW
 
     for ( int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++ )
     {
-        LOGI("mmarinov:createfb for : %d", eye);
         bool b = ovrFramebuffer_Create( &FrameBuffer[eye],
                                 VRAPI_TEXTURE_FORMAT_8888,
                                 vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH ),
                                 vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT ),
                                 NUM_MULTI_SAMPLES );
-        LOGI("mmarinov:createfb result : %d", b);
     }
     ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
                                         vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X ),
@@ -669,7 +665,7 @@ template <class R> void GVRActivityT<R>::onSurfaceCreated(ANativeWindow* nativeW
 }
 
 template <class R> void GVRActivityT<R>::onDrawFrame() {
-    LOGI("mmarinov:cpp:onDrawFrame: ");
+    //LOGI("mmarinov:cpp:onDrawFrame: ");
 
     ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJava_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(), NULL );
     parms.FrameIndex = ++frameIndex;
@@ -699,7 +695,15 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
         ovrFramebuffer * frameBuffer = &FrameBuffer[eye];
         ovrFramebuffer_SetCurrent( frameBuffer );
 
-        oculusJava_.Env->CallVoidMethod(oculusJava_.ActivityObject, drawEyeViewMethodId, eye);
+        /**/
+        const ovrMatrix4f view = eyeViewMatrix;//GetEyeView(eye, fovDegreesX, fovDegreesY);
+
+        if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
+            sensoredSceneUpdated_ = updateSensoredScene();
+        }
+        headRotationProvider_.predict(*this, parms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
+        GL(oculusJava_.Env->CallVoidMethod(oculusJava_.ActivityObject, drawEyeViewMethodId, eye));
+        /**/
 
         ovrFramebuffer_Resolve( frameBuffer );
 
@@ -714,7 +718,6 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
     ovrFramebuffer_SetNone();
 
     vrapi_SubmitFrame(oculusMobile_, &parms);
-    LOGI("mmarinov:cpp:onDrawFrame: done");
 }
 
 template <class R> void GVRActivityT<R>::setupOculusJava(JNIEnv* env) {
@@ -724,9 +727,7 @@ template <class R> void GVRActivityT<R>::setupOculusJava(JNIEnv* env) {
 }
 
 template <class R> void GVRActivityT<R>::onPause() {
-    LOGI("mmarinov:cpp:onPause: ");
     vrapi_LeaveVrMode(oculusMobile_);
-    LOGI("mmarinov:cpp:onPause: done");
 }
 
 }

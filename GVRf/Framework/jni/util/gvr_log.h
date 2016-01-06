@@ -23,11 +23,44 @@
 
 #include <android/log.h>
 
+#include "GLES3/gl3.h"
+
 #define  LOG_TAG    "gvrf"
 #define  LOGV(...)  __android_log_print(ANDROID_LOG_VERBOSE,LOG_TAG,__VA_ARGS__)
 #define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
+
+static const char * GlErrorString( GLenum error )
+{
+    switch ( error )
+    {
+        case GL_NO_ERROR:                       return "GL_NO_ERROR";
+        case GL_INVALID_ENUM:                   return "GL_INVALID_ENUM";
+        case GL_INVALID_VALUE:                  return "GL_INVALID_VALUE";
+        case GL_INVALID_OPERATION:              return "GL_INVALID_OPERATION";
+        case GL_INVALID_FRAMEBUFFER_OPERATION:  return "GL_INVALID_FRAMEBUFFER_OPERATION";
+        case GL_OUT_OF_MEMORY:                  return "GL_OUT_OF_MEMORY";
+        default: return "unknown";
+    }
+}
+static void GLCheckErrors()
+{
+    for ( int i = 0; i < 10; i++ )
+    {
+        const GLenum error = glGetError();
+        if ( error == GL_NO_ERROR )
+        {
+            break;
+        }
+        LOGE( "mmarinov GL error: %s", GlErrorString( error ) );
+        //std::terminate();
+    }
+}
+#define GL( func )      func; GLCheckErrors();
+#define GL_V( func )      func; GLCheckErrors();
+//#define GL( func )      func;
+//#define GL_V( func )      func;
 
 #endif

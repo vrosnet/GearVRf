@@ -47,6 +47,8 @@ import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 
 /**
  * The typical GVRF application will have a single Android {@link Activity},
@@ -101,19 +103,18 @@ public class GVRActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         /*
          * Removes the title bar and the status bar.
          */
-//        requestWindowFeature(Window.FEATURE_NO_TITLE);
-//        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-//                WindowManager.LayoutParams.FLAG_FULLSCREEN);
-//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         mAppSettings = new VrAppSettings();
         super.onCreate(savedInstanceState);
-//
+
         mDockEventReceiver = new DockEventReceiver(this, mRunOnDock, mRunOnUndock);
-//        mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
+        mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
 
         mPtr = nativeOnCreate(this);
 
@@ -135,25 +136,25 @@ public class GVRActivity extends Activity {
                         try {
                             running = true;
                             createPbufferContext(holder);
-                            Log.i("mmarinov", "run : created");
                             nativeOnSurfaceCreated(mPtr, holder.getSurface());
-                            Log.i("mmarinov", "run : native created");
 
                             mGVRViewManager.onSurfaceCreated();
                             startChoreographerThreadIfNotStarted();
 
                             while (running) {
                                 condition.await();
+
+                                mGVRViewManager.beforeDrawEyes();
+                                mGVRViewManager.onDrawFrame();
                                 nativeOnDrawFrame(mPtr);
+                                mGVRViewManager.afterDrawEyes();
                             }
                         } catch(final InterruptedException e){
                             Log.i("mmarinov", "interrupted: ");
                         } finally {
                             lock.unlock();
                         }
-                        Log.i("mmarinov", "run : native on pause");
                         nativeOnPause(mPtr);
-                        Log.i("mmarinov", "run : native on pause - done");
                     }
                 };
                 new Thread(r, "gl-for-sv-"+Integer.toHexString(sv.hashCode())).start();
@@ -260,7 +261,6 @@ public class GVRActivity extends Activity {
             mSurfaceView.onPause();
         }
 
-        Log.i("mmarinov", "onPause : 1");
         running = false;
         lock.lock();
         try {
@@ -268,7 +268,6 @@ public class GVRActivity extends Activity {
         } finally {
             lock.unlock();
         }
-        Log.i("mmarinov", "onPause : 2");
         super.onPause();
     }
 
@@ -507,8 +506,7 @@ public class GVRActivity extends Activity {
     }
 
     boolean updateSensoredScene() {
-//        return mGVRViewManager.updateSensoredScene();
-        return false;
+        return mGVRViewManager.updateSensoredScene();
     }
 
     /**
@@ -683,10 +681,6 @@ public class GVRActivity extends Activity {
     private FrameCallback frameCallback = new FrameCallback() {
         @Override
         public void doFrame(long frameTimeNanos) {
-            while (i++ < 3) {
-                Log.i("mmarinov", "doFrame : ");
-            }
-            
             //mSurfaceView.requestRender();
 
             lock.lock();
