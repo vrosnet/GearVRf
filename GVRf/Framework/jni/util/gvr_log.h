@@ -22,6 +22,7 @@
 #define LOG_H_
 
 #include <android/log.h>
+#include <exception>
 
 #include "GLES3/gl3.h"
 
@@ -45,7 +46,7 @@ static const char * GlErrorString( GLenum error )
         default: return "unknown";
     }
 }
-static void GLCheckErrors()
+static void GLCheckErrors(const char* name)
 {
     for ( int i = 0; i < 10; i++ )
     {
@@ -54,12 +55,12 @@ static void GLCheckErrors()
         {
             break;
         }
-        LOGE( "mmarinov GL error: %s", GlErrorString( error ) );
+        LOGE( "mmarinov GL %s error: %s", name, GlErrorString( error ) );
         //std::terminate();
     }
 }
-#define GL( func )      func; GLCheckErrors();
-#define GL_V( func )      func; GLCheckErrors();
+#define GL( func )      func; GLCheckErrors(#func);
+#define GL_V( func )      func; GLCheckErrors(#func);
 //#define GL( func )      func;
 //#define GL_V( func )      func;
 

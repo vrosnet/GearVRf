@@ -631,7 +631,7 @@ template <class R> void GVRActivityT<R>::OneTimeShutdown()
 
 template <class R> bool GVRActivityT<R>::updateSensoredScene() {
     LOGI("mmarinov:updateSensoredScene: ");
-    return uiJni->CallBooleanMethod(oculusJava_.ActivityObject, updateSensoredSceneMethodId);
+    return oculusJava_.Env->CallBooleanMethod(oculusJava_.ActivityObject, updateSensoredSceneMethodId);
 }
 
 template <class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
@@ -661,6 +661,8 @@ template <class R> void GVRActivityT<R>::onSurfaceCreated(ANativeWindow* nativeW
                                         vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X ),
                                         vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y ),
                                         0.0f, 0.0f, 1.0f, 0.0f );
+    LOGI("mmarinov:fov: x:%f, y:%f", vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X ),
+            vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y ));
     TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection( &ProjectionMatrix );
 }
 
@@ -688,16 +690,11 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
         updatedTracking.HeadPose.Pose.Position = tracking.HeadPose.Pose.Position;
         //ovrTracking updatedTracking = *tracking;
 
-        // Calculate the center view matrix.
-        const ovrMatrix4f centerEyeViewMatrix = vrapi_GetCenterEyeViewMatrix( &headModelParms, &updatedTracking, NULL );
-        const ovrMatrix4f eyeViewMatrix = vrapi_GetEyeViewMatrix( &headModelParms, &centerEyeViewMatrix, eye );
-
         ovrFramebuffer * frameBuffer = &FrameBuffer[eye];
         ovrFramebuffer_SetCurrent( frameBuffer );
+        glViewport(0, 0, frameBuffer->Width, frameBuffer->Height);
 
         /**/
-        const ovrMatrix4f view = eyeViewMatrix;//GetEyeView(eye, fovDegreesX, fovDegreesY);
-
         if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
             sensoredSceneUpdated_ = updateSensoredScene();
         }
@@ -709,8 +706,11 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
 
         parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].ColorTextureSwapChain = frameBuffer->ColorTextureSwapChain;
         parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].TextureSwapChainIndex = frameBuffer->TextureSwapChainIndex;
-        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].TexCoordsFromTanAngles = TexCoordsTanAnglesMatrix;
-        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].HeadPose = updatedTracking.HeadPose;
+        for ( int layer = 0; layer < VRAPI_FRAME_LAYER_TYPE_MAX; layer++ )
+        {
+            parms.Layers[layer].Textures[eye].TexCoordsFromTanAngles = TexCoordsTanAnglesMatrix;
+            parms.Layers[layer].Textures[eye].HeadPose = updatedTracking.HeadPose;
+        }
 
         ovrFramebuffer_Advance( frameBuffer );
     }

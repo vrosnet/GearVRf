@@ -73,8 +73,6 @@ public:
     bool                forceScreenClear;
     bool                ModelLoaded;
 
-    //OVR::OvrSceneView   Scene;
-
     GVRViewManager*     viewManager = nullptr;
 
     Camera*             camera = nullptr;
@@ -84,7 +82,6 @@ public:
 
 private:
     JNIEnv*             uiJni;            // for use by the Java UI thread
-//    OVR::Matrix4f       GetEyeView( const int eye, const float fovDegreesX, const float fovDegreesY ) const;
 
     jclass              activityClass = nullptr;    // must be looked up from main thread or FindClass() will fail
 

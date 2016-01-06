@@ -92,9 +92,7 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
     numberTriangles = 0;
 
     glm::mat4 view_matrix = camera->getViewMatrix();
-    //LOGI("mmarinov:Renderer::renderCamera: vm: %s", glm::to_string(view_matrix).c_str());
     glm::mat4 projection_matrix = camera->getProjectionMatrix();
-    //LOGI("mmarinov:Renderer::renderCamera: pm: %s", glm::to_string(projection_matrix).c_str());
     glm::mat4 vp_matrix = glm::mat4(projection_matrix * view_matrix);
 
     std::vector<PostEffectData*> post_effects = camera->post_effect_data();
@@ -111,7 +109,8 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
 
     if (post_effects.size() == 0) {
         GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
-        GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
+        //GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
+        LOGI("mmarinov:Renderer::renderCamera: %d %d %d %d", viewportX, viewportY, viewportWidth, viewportHeight);
 
         GL_V(glClearColor(camera->background_color_r(),
                 camera->background_color_g(), camera->background_color_b(),
@@ -120,8 +119,8 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
 
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
-            renderRenderData(*it, view_matrix, projection_matrix,
-                    camera->render_mask(), shader_manager);
+            GL_V(renderRenderData(*it, view_matrix, projection_matrix,
+                    camera->render_mask(), shader_manager));
         }
     } else {
         RenderTexture* texture_render_texture = post_effect_render_texture_a;
@@ -129,18 +128,20 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
 
         GL_V(glBindFramebuffer(GL_FRAMEBUFFER,
                 texture_render_texture->getFrameBufferId()));
-        GL_V(glViewport(0, 0, texture_render_texture->width(),
-                texture_render_texture->height()));
+//        GL_V(glViewport(0, 0, texture_render_texture->width(),
+//                texture_render_texture->height()));
+        LOGI("mmarinov:Renderer::renderCamera: 444-2 %d %d", texture_render_texture->width(), texture_render_texture->height());
 
         GL_V(glClearColor(camera->background_color_r(),
                 camera->background_color_g(), camera->background_color_b(),
                 camera->background_color_a()));
-        GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
+        //GL_V(glClear(/*GL_DEPTH_BUFFER_BIT | */GL_COLOR_BUFFER_BIT));
 
+        LOGI("mmarinov:Renderer::renderCamera: 4a");
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
-            renderRenderData(*it, view_matrix, projection_matrix,
-                    camera->render_mask(), shader_manager);
+            GL(renderRenderData(*it, view_matrix, projection_matrix,
+                    camera->render_mask(), shader_manager));
         }
 
         GL_V(glDisable(GL_DEPTH_TEST));
@@ -154,19 +155,19 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
                 texture_render_texture = post_effect_render_texture_b;
                 target_render_texture = post_effect_render_texture_a;
             }
-            glBindFramebuffer(GL_FRAMEBUFFER, framebufferId);
-            glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+            GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
+            GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
 
-            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-            renderPostEffectData(camera, texture_render_texture,
-                    post_effects[i], post_effect_shader_manager);
+            GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
+            GL(renderPostEffectData(camera, texture_render_texture,
+                    post_effects[i], post_effect_shader_manager));
         }
 
         GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
         GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
         GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
-        renderPostEffectData(camera, texture_render_texture,
-                post_effects.back(), post_effect_shader_manager);
+        GL_V(renderPostEffectData(camera, texture_render_texture,
+                post_effects.back(), post_effect_shader_manager));
     }
 }
 
@@ -482,8 +483,6 @@ void Renderer::renderCamera(Scene* scene, Camera* camera,
     GLint viewport[4];
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &curFBO);
     glGetIntegerv(GL_VIEWPORT, viewport);
-    LOGI("mmarinov:Renderer::renderCamera: curFBO %d %d %d %d %d", curFBO, viewport[0],viewport[1],
-            viewport[2], viewport[3]);
 
     renderCamera(scene, camera, curFBO, viewport[0], viewport[1], viewport[2],
             viewport[3], shader_manager, post_effect_shader_manager,
@@ -521,15 +520,15 @@ void Renderer::renderRenderData(RenderData* render_data,
     if (render_mask & render_data->render_mask()) {
 
         if (render_data->offset()) {
-            glEnable (GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(render_data->offset_factor(),
-                    render_data->offset_units());
+            GL_V(glEnable (GL_POLYGON_OFFSET_FILL));
+            GL_V(glPolygonOffset(render_data->offset_factor(),
+                    render_data->offset_units()));
         }
         if (!render_data->depth_test()) {
-            glDisable (GL_DEPTH_TEST);
+            GL_V(glDisable (GL_DEPTH_TEST));
         }
         if (!render_data->alpha_blend()) {
-            glDisable (GL_BLEND);
+            GL_V(glDisable (GL_BLEND));
         }
         if (render_data->mesh() != 0) {
             for (int curr_pass = 0; curr_pass < render_data->pass_count();

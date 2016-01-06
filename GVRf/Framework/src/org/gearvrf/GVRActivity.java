@@ -144,10 +144,15 @@ public class GVRActivity extends Activity {
                             while (running) {
                                 condition.await();
 
+                                Log.i("mmarinov", "run : 1");
                                 mGVRViewManager.beforeDrawEyes();
+                                Log.i("mmarinov", "run : 2");
                                 mGVRViewManager.onDrawFrame();
+                                Log.i("mmarinov", "run : 3");
                                 nativeOnDrawFrame(mPtr);
+                                Log.i("mmarinov", "run : 4");
                                 mGVRViewManager.afterDrawEyes();
+                                Log.i("mmarinov", "run : 5");
                             }
                         } catch(final InterruptedException e){
                             Log.i("mmarinov", "interrupted: ");
