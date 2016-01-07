@@ -60,7 +60,6 @@ public:
 
 //    virtual void        Configure( OVR::ovrSettings & settings );
     virtual void        OneTimeShutdown();
-//    virtual OVR::Matrix4f    DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms );
 //    virtual OVR::Matrix4f    Frame( const OVR::VrFrame & vrFrame );
 //    virtual bool        OnKeyEvent( const int keyCode, const int repeatCount, const OVR::KeyEventType eventType );
     bool                updateSensoredScene();

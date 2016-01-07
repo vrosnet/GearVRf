@@ -541,48 +541,6 @@ template <class R> void GVRActivityT<R>::OneTimeShutdown()
     // Free GL resources
 }
 
-//template <class R> OVR::Matrix4f GVRActivityT<R>::GetEyeView(const int eye, const float fovDegreesX, const float fovDegreesY) const
-//{
-//    const OVR::Matrix4f projectionMatrix = Scene.GetEyeProjectionMatrix( eye, fovDegreesX, fovDegreesY );
-//    const OVR::Matrix4f viewMatrix = Scene.GetEyeViewMatrix( eye );
-//    return ( projectionMatrix * viewMatrix );
-//}
-
-//template <class R> OVR::Matrix4f GVRActivityT<R>::DrawEyeView(const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms) {
-//    const OVR::Matrix4f view = GetEyeView(eye, fovDegreesX, fovDegreesY);
-//
-//    // Transpose view matrix from oculus to mvp_matrix to rendering correctly with gvrf renderer.
-//    mvp_matrix = glm::mat4(view.M[0][0], view.M[1][0], view.M[2][0],
-//            view.M[3][0], view.M[0][1], view.M[1][1], view.M[2][1],
-//            view.M[3][1], view.M[0][2], view.M[1][2], view.M[2][2],
-//            view.M[3][2], view.M[0][3], view.M[1][3], view.M[2][3],
-//            view.M[3][3]);
-//
-//    SetMVPMatrix(mvp_matrix);
-//
-//    if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
-//        sensoredSceneUpdated_ = updateSensoredScene();
-//    }
-//    headRotationProvider_.predict(*this, frameParms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
-//
-////    JNIEnv* jni = app->GetJava()->Env;
-////    jni->CallVoidMethod(app->GetJava()->ActivityObject, drawEyeViewMethodId, eye, fovDegreesY);
-////
-//
-//    glm::mat4 view_matrix = camera->getViewMatrix();
-//    glm::mat4 projection_matrix = camera->getProjectionMatrix(); //gun
-//    glm::mat4 vp_matrix = glm::mat4(projection_matrix * view_matrix);
-//
-//    OVR::Matrix4f view2 = OVR::Matrix4f(vp_matrix[0][0], vp_matrix[1][0],
-//            vp_matrix[2][0], vp_matrix[3][0], vp_matrix[0][1], vp_matrix[1][1],
-//            vp_matrix[2][1], vp_matrix[3][1], vp_matrix[0][2], vp_matrix[1][2],
-//            vp_matrix[2][2], vp_matrix[3][2], vp_matrix[0][3], vp_matrix[1][3],
-//            vp_matrix[2][3], vp_matrix[3][3]);
-//
-//    return view2;
-//
-//}
-
 //template <class R> OVR::Matrix4f GVRActivityT<R>::Frame( const OVR::VrFrame & vrFrame )
 //{
 ////    JNIEnv* jni = app->GetJava()->Env;
@@ -630,7 +588,6 @@ template <class R> void GVRActivityT<R>::OneTimeShutdown()
 //}
 
 template <class R> bool GVRActivityT<R>::updateSensoredScene() {
-    LOGI("mmarinov:updateSensoredScene: ");
     return oculusJava_.Env->CallBooleanMethod(oculusJava_.ActivityObject, updateSensoredSceneMethodId);
 }
 
@@ -643,11 +600,7 @@ template <class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
 template <class R> void GVRActivityT<R>::onSurfaceCreated(ANativeWindow* nativeWindow) {
     ovrModeParms parms = vrapi_DefaultModeParms(&oculusJava_);
     parms.ResetWindowFullscreen = true;
-//    parms.WindowSurface = reinterpret_cast<unsigned long long>(currentSurface);
-//    parms.Display = reinterpret_cast<unsigned long long>(currentDisplay);
-//    parms.ShareContext = reinterpret_cast<unsigned long long>(currentContext);
     oculusMobile_ = vrapi_EnterVrMode( &parms );
-    LOGV("vrapi: entered vr mode");
 
     for ( int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++ )
     {
@@ -657,12 +610,11 @@ template <class R> void GVRActivityT<R>::onSurfaceCreated(ANativeWindow* nativeW
                                 vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT ),
                                 NUM_MULTI_SAMPLES );
     }
+
     ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
                                         vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X ),
                                         vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y ),
                                         0.0f, 0.0f, 1.0f, 0.0f );
-    LOGI("mmarinov:fov: x:%f, y:%f", vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X ),
-            vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y ));
     TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection( &ProjectionMatrix );
 }
 
@@ -674,8 +626,6 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
     parms.MinimumVsyncs = 1;
     parms.PerformanceParms = vrapi_DefaultPerformanceParms();
     parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Flags |= VRAPI_FRAME_LAYER_FLAG_CHROMATIC_ABERRATION_CORRECTION;
-
-    // Calculate the center view matrix.
 
     const double predictedDisplayTime = vrapi_GetPredictedDisplayTime( oculusMobile_, frameIndex );
     const ovrTracking baseTracking = vrapi_GetPredictedTracking( oculusMobile_, predictedDisplayTime );
@@ -692,14 +642,15 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
 
         ovrFramebuffer * frameBuffer = &FrameBuffer[eye];
         ovrFramebuffer_SetCurrent( frameBuffer );
-        glViewport(0, 0, frameBuffer->Width, frameBuffer->Height);
+        GL(glViewport(0, 0, frameBuffer->Width, frameBuffer->Height));
+        GL(glScissor(0, 0, frameBuffer->Width, frameBuffer->Height));
 
         /**/
         if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
             sensoredSceneUpdated_ = updateSensoredScene();
         }
         headRotationProvider_.predict(*this, parms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
-        GL(oculusJava_.Env->CallVoidMethod(oculusJava_.ActivityObject, drawEyeViewMethodId, eye));
+        oculusJava_.Env->CallVoidMethod(oculusJava_.ActivityObject, drawEyeViewMethodId, eye);
         /**/
 
         ovrFramebuffer_Resolve( frameBuffer );
