@@ -43,7 +43,7 @@ typedef struct
     int                     Height;
     int                     Multisamples;
     int                     TextureSwapChainLength;
-    int                     TextureSwapChainIndex;
+    int                     TextureSwapChainIndex = 0;
     ovrTextureSwapChain *   ColorTextureSwapChain;
     GLuint *                DepthBuffers;
     GLuint *                FrameBuffers;

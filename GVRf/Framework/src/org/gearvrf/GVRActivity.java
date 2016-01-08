@@ -23,7 +23,11 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
+import javax.microedition.khronos.opengles.GL10;
 
+import org.gearvrf.MyGLSurfaceView.EGLConfigChooser;
+import org.gearvrf.MyGLSurfaceView.EGLWindowSurfaceFactory;
+import org.gearvrf.MyGLSurfaceView.Renderer;
 import org.gearvrf.scene_objects.GVRViewSceneObject;
 import org.gearvrf.scene_objects.view.GVRView;
 import org.gearvrf.utility.DockEventReceiver;
@@ -32,8 +36,6 @@ import org.gearvrf.utility.VrAppSettings;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
-import android.opengl.GLSurfaceView;
-import android.opengl.GLSurfaceView.EGLConfigChooser;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.HandlerThread;
@@ -43,7 +45,6 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
-import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -81,7 +82,7 @@ public class GVRActivity extends Activity {
     // Group of views that are going to be drawn
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
-    private GLSurfaceView mSurfaceView;
+    private MyGLSurfaceView mSurfaceView;
     private SurfaceView sv;
 
     static {
@@ -118,107 +119,160 @@ public class GVRActivity extends Activity {
 
         mPtr = nativeOnCreate(this);
 
-        sv = new SurfaceView(this);
-        setContentView(sv);
-        sv.getHolder().addCallback(new Callback() {
+//        sv = new SurfaceView(this);
+//        setContentView(sv);
+//        sv.getHolder().addCallback(new Callback() {
+//            @Override
+//            public void surfaceDestroyed(SurfaceHolder holder) {
+//                // TODO Auto-generated method stub
+//                
+//            }
+//            
+//            @Override
+//            public void surfaceCreated(final SurfaceHolder holder) {
+//                Runnable r = new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        lock.lock();
+//                        try {
+//                            running = true;
+//                            createPbufferContext(holder);
+//                            nativeOnSurfaceCreated(mPtr, holder.getSurface());
+//
+//                            mGVRViewManager.onSurfaceCreated();
+//                            startChoreographerThreadIfNotStarted();
+//
+//                            while (running) {
+//                                condition.await();
+//
+//                                Log.i("mmarinov", "run : 1");
+//                                mGVRViewManager.beforeDrawEyes();
+//                                Log.i("mmarinov", "run : 2");
+//                                mGVRViewManager.onDrawFrame();
+//                                Log.i("mmarinov", "run : 3");
+//                                nativeOnDrawFrame(mPtr);
+//                                Log.i("mmarinov", "run : 4");
+//                                mGVRViewManager.afterDrawEyes();
+//                                Log.i("mmarinov", "run : 5");
+//                            }
+//                        } catch(final InterruptedException e){
+//                            Log.i("mmarinov", "interrupted: ");
+//                        } finally {
+//                            lock.unlock();
+//                        }
+//                        nativeOnPause(mPtr);
+//                    }
+//                };
+//                new Thread(r, "gl-for-sv-"+Integer.toHexString(sv.hashCode())).start();
+//            }
+//            
+//            @Override
+//            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+//                // TODO Auto-generated method stub
+//                
+//            }
+//        });
+
+
+        mSurfaceView = new MyGLSurfaceView(this);
+        mSurfaceView.setDebugFlags(MyGLSurfaceView.DEBUG_CHECK_GL_ERROR|MyGLSurfaceView.DEBUG_LOG_GL_CALLS);
+        mSurfaceView.setEGLContextClientVersion(3);
+        mSurfaceView.setEGLConfigChooser(configChooser);
+        mSurfaceView.setEGLWindowSurfaceFactory(new EGLWindowSurfaceFactory() {
             @Override
-            public void surfaceDestroyed(SurfaceHolder holder) {
-                // TODO Auto-generated method stub
-                
+            public void destroySurface(EGL10 egl, EGLDisplay display, EGLSurface surface) {
+                egl.eglDestroySurface(display, surface);
             }
-            
             @Override
-            public void surfaceCreated(final SurfaceHolder holder) {
-                Runnable r = new Runnable() {
-                    @Override
-                    public void run() {
-                        lock.lock();
-                        try {
-                            running = true;
-                            createPbufferContext(holder);
-                            nativeOnSurfaceCreated(mPtr, holder.getSurface());
-
-                            mGVRViewManager.onSurfaceCreated();
-                            startChoreographerThreadIfNotStarted();
-
-                            while (running) {
-                                condition.await();
-
-                                Log.i("mmarinov", "run : 1");
-                                mGVRViewManager.beforeDrawEyes();
-                                Log.i("mmarinov", "run : 2");
-                                mGVRViewManager.onDrawFrame();
-                                Log.i("mmarinov", "run : 3");
-                                nativeOnDrawFrame(mPtr);
-                                Log.i("mmarinov", "run : 4");
-                                mGVRViewManager.afterDrawEyes();
-                                Log.i("mmarinov", "run : 5");
-                            }
-                        } catch(final InterruptedException e){
-                            Log.i("mmarinov", "interrupted: ");
-                        } finally {
-                            lock.unlock();
-                        }
-                        nativeOnPause(mPtr);
-                    }
-                };
-                new Thread(r, "gl-for-sv-"+Integer.toHexString(sv.hashCode())).start();
-            }
-            
-            @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                // TODO Auto-generated method stub
-                
+            public EGLSurface createWindowSurface(EGL10 egl, EGLDisplay display, EGLConfig config,
+                    Object ignoredNativeWindow) {
+                int[] surfaceAttribs = {
+                        EGL10.EGL_WIDTH, 16,
+                        EGL10.EGL_HEIGHT, 16,
+                        EGL10.EGL_NONE
+                    };
+                pbufferSurface = egl.eglCreatePbufferSurface( display, config, surfaceAttribs);
+                if ( EGL10.EGL_NO_SURFACE == pbufferSurface)
+                {
+                    throw new RuntimeException("Pixel buffer surface not created; error 0x" + Integer.toHexString(egl.eglGetError()));
+                }
+                return pbufferSurface;
             }
         });
 
+        mSurfaceView.setRenderer(new Renderer() {
+            EGLConfig mConfig;
+            @Override
+            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+                Log.i("mmarinov", "onSurfaceCreated : ");
 
-//        mSurfaceView = new GLSurfaceView(this);
-//        mSurfaceView.setEGLContextClientVersion(3);
-//        mSurfaceView.setEGLConfigChooser(configChooser);
-
-//        mSurfaceView.setRenderer(new Renderer() {
-//            @Override
-//            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-//                Log.i("mmarinov", "onSurfaceCreated : ");
-//                //mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
-////                mGVRViewManager.onSurfaceCreated();
-////                GVRActivity.onSurfaceCreated(mPtr);
-////
-////                int width = 2560, height = 1440;
-////                width = getAppSettings().getFramebufferPixelsWide();
-////                height = getAppSettings().getFramebufferPixelsHigh();
-////                mSurfaceView.getHolder().setFixedSize(width, height);
-////
-////                startChoreographerThreadIfNotStarted();
-////                Log.i("mmarinov", "onSurfaceCreated : done");
-//            }
-//            @Override
-//            public void onSurfaceChanged(GL10 gl, int ignored1, int ignored2) {
-//                Log.i("mmarinov", "onSurfaceChanged : ");
+                mConfig = config;
+//                EGL10 egl = (EGL10) EGLContext.getEGL();
+//                EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+//                EGLContext context = egl.eglGetCurrentContext();
+//                createWindowSurface(mSurfaceView.getHolder(), egl, display, config, context);
+//
+//                nativeOnSurfaceCreated(mPtr, mSurfaceView.getHolder().getSurface());
+//
 //                mGVRViewManager.onSurfaceCreated();
-//                GVRActivity.onSurfaceCreated(mPtr);
-//
-//                int width = 2560, height = 1440;
-//                width = getAppSettings().getFramebufferPixelsWide();
-//                height = getAppSettings().getFramebufferPixelsHigh();
-//                mSurfaceView.getHolder().setFixedSize(width, height);
-//
 //                startChoreographerThreadIfNotStarted();
-//                Log.i("mmarinov", "onSurfaceChanged : done");
-//            }
-//            @Override
-//            public void onDrawFrame(GL10 gl) {
-//                Log.i("mmarinov", "java:onDrawFrame : ");
-//                mGVRViewManager.onDrawFrame();
-//
-//                mGVRViewManager.beforeDrawEyes();
-//                GVRActivity.onDrawFrame(mPtr);
-//                mGVRViewManager.afterDrawEyes();
-//            }
-//        });
-//        mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
-//        setContentView(mSurfaceView);
+
+                //mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+            }
+            @Override
+            public void onSurfaceChanged(GL10 gl, int ignored1, int ignored2) {
+                Log.i("mmarinov", "onSurfaceChanged : ");
+
+                EGL10 egl = (EGL10) EGLContext.getEGL();
+                EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+                EGLContext context = egl.eglGetCurrentContext();
+
+                EGLSurface surface = egl.eglGetCurrentSurface(EGL10.EGL_DRAW);
+                Log.i("mmarinov", "onSurfaceChanged - on entry: "+Integer.toHexString(surface.hashCode()));
+
+                createWindowSurface(mSurfaceView.getHolder(), egl, display, mConfig, context);
+                surface = egl.eglGetCurrentSurface(EGL10.EGL_DRAW);
+                Log.i("mmarinov", "onSurfaceChanged after createWindowSurface: "+Integer.toHexString(surface.hashCode()));
+
+                nativeOnSurfaceCreated(mPtr, mSurfaceView.getHolder().getSurface());
+                surface = egl.eglGetCurrentSurface(EGL10.EGL_DRAW);
+                Log.i("mmarinov", "onSurfaceChanged after nativeOnSurfaceCreated: "+Integer.toHexString(surface.hashCode()));
+
+                mGVRViewManager.onSurfaceCreated();
+                startChoreographerThreadIfNotStarted();
+
+                surface = egl.eglGetCurrentSurface(EGL10.EGL_DRAW);
+                Log.i("mmarinov", "onSurfaceChanged before done: "+Integer.toHexString(surface.hashCode()));
+
+                if (!egl.eglMakeCurrent( display, pbufferSurface, pbufferSurface, context ))
+                {
+                    egl.eglDestroySurface( display, pbufferSurface);
+                    egl.eglDestroyContext( display, context );
+                    throw new RuntimeException("Failed to make current context; error 0x" + Integer.toHexString(egl.eglGetError()));
+                }
+                surface = egl.eglGetCurrentSurface(EGL10.EGL_DRAW);
+                Log.i("mmarinov", "onSurfaceChanged after makeCurrent: "+Integer.toHexString(surface.hashCode()));
+
+                Log.i("mmarinov", "onSurfaceChanged : done");
+            }
+            @Override
+            public void onDrawFrame(GL10 gl) {
+                Log.i("mmarinov", "java:onDrawFrame : ");
+                EGL10 egl = (EGL10) EGLContext.getEGL();
+                EGLSurface surface = egl.eglGetCurrentSurface(EGL10.EGL_DRAW);
+                Log.i("mmarinov", "onDrawFrame : "+Integer.toHexString(surface.hashCode()));
+                mGVRViewManager.beforeDrawEyes();
+                Log.i("mmarinov", "run : 2");
+                mGVRViewManager.onDrawFrame();
+                Log.i("mmarinov", "run : 3");
+                nativeOnDrawFrame(mPtr);
+                Log.i("mmarinov", "run : 4");
+                mGVRViewManager.afterDrawEyes();
+                Log.i("mmarinov", "run : 5");
+            }
+        });
+        mSurfaceView.setRenderMode(MyGLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        setContentView(mSurfaceView);
     }
 
     private HandlerThread choreographerThread;
@@ -552,7 +606,7 @@ public class GVRActivity extends Activity {
 
     EGLSurface pbufferSurface;
     EGLSurface mainSurface;
-    private void createPbufferContext(SurfaceHolder holder) {
+    private void createGlContext(SurfaceHolder holder) {
         EGL10 egl = (EGL10) EGLContext.getEGL();
 
         EGLDisplay eglDisplay = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
@@ -581,6 +635,11 @@ public class GVRActivity extends Activity {
             EGL10.EGL_NONE
         };
 
+        createEglSurfaces(holder, egl, eglDisplay, config, context, surfaceAttribs);
+    }
+
+    private void createEglSurfaces(SurfaceHolder holder, EGL10 egl, EGLDisplay eglDisplay, EGLConfig config,
+            EGLContext context, int[] surfaceAttribs) {
         pbufferSurface = egl.eglCreatePbufferSurface( eglDisplay, config, surfaceAttribs);
         if ( EGL10.EGL_NO_SURFACE == pbufferSurface)
         {
@@ -595,20 +654,21 @@ public class GVRActivity extends Activity {
         }
         Log.i("mmarinov", "createPbufferContext : pbuffer " + Integer.toHexString(pbufferSurface.hashCode()));
 
-        //////////
-        {
-            int[] surfaceAttribs2 = { EGL10.EGL_NONE };
-            mainSurface = egl.eglCreateWindowSurface( eglDisplay, config, holder, surfaceAttribs2);
-            if ( mainSurface == EGL10.EGL_NO_SURFACE )
-            {
-                Log.e(TAG, "eglCreateWindowSurface() failed: 0x%X", egl.eglGetError());
-                return;
-            }
-        if (!egl.eglMakeCurrent( eglDisplay, mainSurface, mainSurface, context )) {
-            Log.e(TAG, "eglMakeCurrent() failed: 0x%X", egl.eglGetError());
+        createWindowSurface(holder, egl, eglDisplay, config, context);
+    }
+
+    private void createWindowSurface(SurfaceHolder holder, EGL10 egl, EGLDisplay eglDisplay,
+            EGLConfig config, EGLContext context) {
+        mainSurface = egl.eglCreateWindowSurface(eglDisplay, config, holder, new int[] {
+                EGL10.EGL_NONE
+        });
+        if (mainSurface == EGL10.EGL_NO_SURFACE) {
+            Log.e(TAG, "eglCreateWindowSurface() failed: 0x%X", egl.eglGetError());
             return;
         }
-        Log.i("mmarinov", "createPbufferContext : mainSurface " + Integer.toHexString(mainSurface.hashCode()));
+        if (!egl.eglMakeCurrent(eglDisplay, mainSurface, mainSurface, context)) {
+            Log.e(TAG, "eglMakeCurrent() failed: 0x%X", egl.eglGetError());
+            return;
         }
     }
 
@@ -682,18 +742,16 @@ public class GVRActivity extends Activity {
         }
     };
 
-    int i=0;
     private FrameCallback frameCallback = new FrameCallback() {
         @Override
         public void doFrame(long frameTimeNanos) {
-            //mSurfaceView.requestRender();
-
-            lock.lock();
-            try {
-                condition.signal();
-            } finally {
-                lock.unlock();
-            }
+            mSurfaceView.requestRender();
+//            lock.lock();
+//            try {
+//                condition.signal();
+//            } finally {
+//                lock.unlock();
+//            }
 
             Choreographer.getInstance().postFrameCallback(this);
         }

@@ -279,8 +279,6 @@ template <class R> void GVRActivityT<R>::initJni() {
                                         "VrApi initialization error.";
         SystemActivities_DisplayError( &oculusJava_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg );
     }
-
-    LOGV("vrapi: initialized");
 }
 
 template <class R> jmethodID GVRActivityT<R>::GetStaticMethodID( jclass clazz, const char * name,
@@ -619,8 +617,6 @@ template <class R> void GVRActivityT<R>::onSurfaceCreated(ANativeWindow* nativeW
 }
 
 template <class R> void GVRActivityT<R>::onDrawFrame() {
-    //LOGI("mmarinov:cpp:onDrawFrame: ");
-
     ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJava_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(), NULL );
     parms.FrameIndex = ++frameIndex;
     parms.MinimumVsyncs = 1;
