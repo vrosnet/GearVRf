@@ -44,12 +44,10 @@ template <class R> class GVRActivityT
 public:
     GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks);
     virtual ~GVRActivityT() {
-        //todo
     }
 
 //    virtual void        Configure( OVR::ovrSettings & settings );
     virtual void        OneTimeShutdown();
-//    virtual bool        OnKeyEvent( const int keyCode, const int repeatCount, const OVR::KeyEventType eventType );
     bool                updateSensoredScene();
     void                setCameraRig(jlong cameraRig);
 
@@ -61,9 +59,9 @@ public:
     R                   headRotationProvider_;
 
 private:
-    JNIEnv*             mainThreadJni_;            // for use by the Java UI thread
+    JNIEnv* jniMainThread_;                     // for use by the Java UI thread
 
-    jclass activityClass_;                  // must be looked up from main thread or FindClass() will fail
+    jclass activityClass_;                      // must be looked up from main thread or FindClass() will fail
     jclass activityRenderingCallbacksClass_;
 
     jclass              vrAppSettingsClass = nullptr;
@@ -75,7 +73,6 @@ private:
 
     jmethodID           onDrawEyeMethodId = nullptr;
 
-    jmethodID           onKeyEventNativeMethodId = nullptr;
     jmethodID           updateSensoredSceneMethodId = nullptr;
 
     jclass              GetGlobalClassReference( const char * className ) const;
@@ -85,14 +82,16 @@ private:
 public:
     void onSurfaceCreated();
     void onDrawFrame();
-    void setupOculusJava(JNIEnv* env);
+    void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
     void leaveVrApi();
     void onDestroy();
+    void showGlobalMenu();
 
     jobject activity_;
     jobject activityRenderingCallbacks_;
 
-    ovrJava oculusJava_;
+    ovrJava oculusJavaMainThread_;
+    ovrJava oculusJavaGlThread_;
     ovrMobile* oculusMobile_ = nullptr;
     long long frameIndex = 1;
     FbWrapper FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];

@@ -86,6 +86,7 @@ public class GVRActivity extends Activity {
     static native void nativeOnDock(long appPtr);
     static native void nativeOnUndock(long appPtr);
     static native void nativeOnDestroy(long appPtr);
+    static native void nativeShowGlobalMenu(long appPtr);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -265,85 +266,34 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-//        boolean handled = mViewManager.dispatchKeyEvent(event);
-//        if (handled == false) {
-//            handled = super.dispatchKeyEvent(event);// VrActivity's
-//        }
-//        return handled;
-        return false;
+        if (event.isLongPress() && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            nativeShowGlobalMenu(mPtr);
+            return true;
+        }
+
+        boolean handled = mViewManager.dispatchKeyEvent(event);
+        if (handled == false) {
+            handled = super.dispatchKeyEvent(event);
+        }
+        return handled;
     }
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-//        boolean handled = mViewManager.dispatchMotionEvent(event);
-//        if (handled == false) {
-//            handled = super.dispatchGenericMotionEvent(event);// VrActivity's
-//        }
-//        return handled;
-        return false;
+        boolean handled = mViewManager.dispatchMotionEvent(event);
+        if (handled == false) {
+            handled = super.dispatchGenericMotionEvent(event);
+        }
+        return handled;
     }
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-//        boolean handled = mViewManager.dispatchMotionEvent(event);
-//
-//        if (handled == false) {
-//            handled = super.dispatchTouchEvent(event);// VrActivity's
-//        }
-//        /*
-//         * Situation: while the super class VrActivity is implementing
-//         * dispatchTouchEvent() without calling its own super
-//         * dispatchTouchEvent(), we still need to call the
-//         * VRTouchPadGestureDetector onTouchEvent. Call it here, similar way
-//         * like in place of viewGroup.onInterceptTouchEvent()
-//         */
-//        onTouchEvent(event);
-//
-//        return handled;
-        return false;
-    }
-
-    boolean onKeyEventNative(int keyCode, int eventType) {
-
-        /*
-         * Currently VrLib does not call Java onKeyDown()/onKeyUp() in the
-         * Activity class. In stead, it calls VrAppInterface->OnKeyEvent if
-         * defined in the native side, to give a chance to the app before it
-         * intercepts. With this implementation, the developers can expect
-         * consistently their key event methods are called as usual in case they
-         * want to use the events. The parameter eventType matches with the
-         * native side. It can be more than two, DOWN and UP, if the native
-         * supports in the future.
-         */
-
-        switch (eventType) {
-        case KEY_EVENT_SHORT_PRESS:
-            return onKeyShortPress(keyCode);
-        case KEY_EVENT_DOUBLE_TAP:
-            return onKeyDoubleTap(keyCode);
-        case KEY_EVENT_LONG_PRESS:
-            return onKeyLongPress(keyCode, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        case KEY_EVENT_DOWN:
-            return onKeyDown(keyCode, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        case KEY_EVENT_UP:
-            return onKeyUp(keyCode, new KeyEvent(KeyEvent.ACTION_UP, keyCode));
-        case KEY_EVENT_MAX:
-            return onKeyMax(keyCode);
-        default:
-            return false;
+        boolean handled = mViewManager.dispatchMotionEvent(event);
+        if (handled == false) {
+            handled = super.dispatchTouchEvent(event);// VrActivity's
         }
-    }
-
-    public boolean onKeyShortPress(int keyCode) {
-        return false;
-    }
-
-    public boolean onKeyDoubleTap(int keyCode) {
-        return false;
-    }
-
-    public boolean onKeyMax(int keyCode) {
-        return false;
+        return handled;
     }
 
     boolean updateSensoredScene() {

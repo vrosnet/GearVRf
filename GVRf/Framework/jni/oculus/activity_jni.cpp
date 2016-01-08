@@ -50,7 +50,7 @@ JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrApi(JN
     activity->leaveVrApi();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->onDestroy();
 }
@@ -58,7 +58,7 @@ JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDestroy(JNI
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceCreated(JNIEnv * jni, jclass clazz,
         jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
-    activity->setupOculusJava(jni);
+    activity->initializeOculusJava(*jni, activity->oculusJavaGlThread_);
     activity->onSurfaceCreated();
 }
 
@@ -90,6 +90,11 @@ JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnUndock(JNIEnv * jni,
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onUndock();
 }
+
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeShowGlobalMenu(JNIEnv * jni, jclass clazz, jlong appPtr) {
+    GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
+    activity->showGlobalMenu();
+}
 }
 
 //=============================================================================
@@ -97,7 +102,7 @@ JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnUndock(JNIEnv * jni,
 //=============================================================================
 
 template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks) :
-        mainThreadJni_(&jni) {
+        jniMainThread_(&jni) {
 
     activity_ = jni.NewGlobalRef(activity);
     activityRenderingCallbacks_ = jni.NewGlobalRef(callbacks);
@@ -107,30 +112,27 @@ template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, j
     vrAppSettingsClass = GetGlobalClassReference(app_settings_name);
 
 //    oneTimeShutdownMethodId = GetMethodID("oneTimeShutDown", "()V");
-//
     onDrawEyeMethodId = GetMethodId(activityRenderingCallbacksClass_, "onDrawEye", "(I)V");
-
-//    onKeyEventNativeMethodId = GetMethodID("onKeyEventNative", "(II)Z");
     updateSensoredSceneMethodId = GetMethodId(activityClass_, "updateSensoredScene", "()Z");
     //getAppSettingsMethodId = GetMethodID("getAppSettings", "()Lorg/gearvrf/utility/VrAppSettings;");
 
-    setupOculusJava(mainThreadJni_);
+    initializeOculusJava(*jniMainThread_, oculusJavaMainThread_);
+    SystemActivities_Init(&oculusJavaMainThread_);
 
-    SystemActivities_Init(&oculusJava_);
-    const ovrInitParms initParms = vrapi_DefaultInitParms(&oculusJava_);
+    const ovrInitParms initParms = vrapi_DefaultInitParms(&oculusJavaMainThread_);
     int32_t initResult = vrapi_Initialize(&initParms);
     if (VRAPI_INITIALIZE_SUCCESS != initResult) {
         char const * msg =
                 initResult == VRAPI_INITIALIZE_PERMISSIONS_ERROR ?
                         "Thread priority security exception. Make sure the APK is signed." :
                         "VrApi initialization error.";
-        SystemActivities_DisplayError(&oculusJava_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg);
+        SystemActivities_DisplayError(&oculusJavaMainThread_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg);
     }
 }
 
 template<class R> jmethodID GVRActivityT<R>::GetStaticMethodID(jclass clazz, const char * name,
         const char * signature) {
-    jmethodID mid = mainThreadJni_->GetStaticMethodID(clazz, name, signature);
+    jmethodID mid = jniMainThread_->GetStaticMethodID(clazz, name, signature);
     if (!mid) {
         //FAIL("couldn't get %s", name);
     }
@@ -138,7 +140,7 @@ template<class R> jmethodID GVRActivityT<R>::GetStaticMethodID(jclass clazz, con
 }
 
 template<class R> jmethodID GVRActivityT<R>::GetMethodId(const jclass clazz, const char* name, const char* signature) {
-    const jmethodID mid = mainThreadJni_->GetMethodID(clazz, name, signature);
+    const jmethodID mid = jniMainThread_->GetMethodID(clazz, name, signature);
     if (nullptr == mid) {
         std::terminate();
     }
@@ -147,13 +149,13 @@ template<class R> jmethodID GVRActivityT<R>::GetMethodId(const jclass clazz, con
 
 template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalClassReference(
         const char * className) const {
-    jclass lc = mainThreadJni_->FindClass(className);
+    jclass lc = jniMainThread_->FindClass(className);
     if (lc == 0) {
         //FAIL( "FindClass( %s ) failed", className);
     }
     // Turn it into a global ref, so we can safely use it in the VR thread
-    jclass gc = (jclass) mainThreadJni_->NewGlobalRef(lc);
-    mainThreadJni_->DeleteLocalRef(lc);
+    jclass gc = (jclass) jniMainThread_->NewGlobalRef(lc);
+    jniMainThread_->DeleteLocalRef(lc);
 
     return gc;
 }
@@ -381,58 +383,16 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
 
 template<class R> void GVRActivityT<R>::OneTimeShutdown() {
 //    app->GetJava()->Env->CallVoidMethod(app->GetJava()->ActivityObject, oneTimeShutdownMethodId);
-
 // Free GL resources
 }
 
-//template <class R> OVR::Matrix4f GVRActivityT<R>::Frame( const OVR::VrFrame & vrFrame )
-//{
-////    JNIEnv* jni = app->GetJava()->Env;
-//
-//	//This is called once while DrawEyeView is called twice, when eye=0 and eye 1.
-//	//So camera is set in java as one of left and right camera.
-//	//Centerview camera matrix can be retrieved from its parent, CameraRig
-//    glm::mat4 vp_matrix = camera->getCenterViewMatrix();
-//
-//    ovrMatrix4f view2;
-//
-//    view2.M[0][0] = vp_matrix[0][0];
-//    view2.M[1][0] = vp_matrix[0][1];
-//    view2.M[2][0] = vp_matrix[0][2];
-//    view2.M[3][0] = vp_matrix[0][3];
-//    view2.M[0][1] = vp_matrix[1][0];
-//    view2.M[1][1] = vp_matrix[1][1];
-//    view2.M[2][1] = vp_matrix[1][2];
-//    view2.M[3][1] = vp_matrix[1][3];
-//    view2.M[0][2] = vp_matrix[2][0];
-//    view2.M[1][2] = vp_matrix[2][1];
-//    view2.M[2][2] = vp_matrix[2][2];
-//    view2.M[3][2] = vp_matrix[2][3];
-//    view2.M[0][3] = vp_matrix[3][0];
-//    view2.M[1][3] = vp_matrix[3][1];
-//    view2.M[2][3] = vp_matrix[3][2];
-//    view2.M[3][3] = vp_matrix[3][3];
-//
-//    return view2;
-//}
 
-//template <class R> bool GVRActivityT<R>::OnKeyEvent(const int keyCode, const int repeatCode,
-//        const OVR::KeyEventType eventType) {
-//
-////    bool handled = app->GetJava()->Env->CallBooleanMethod(app->GetJava()->ActivityObject,
-////            onKeyEventNativeMethodId, keyCode, (int)eventType);
-////
-////    // if not handled back key long press, show global menu
-////    if (handled == false && keyCode == OVR::OVR_KEY_BACK && eventType == OVR::KEY_EVENT_LONG_PRESS) {
-////        app->StartSystemActivity(PUI_GLOBAL_MENU);
-////    }
-////
-////    return handled;
-//    return false;
-//}
+template <class R> void GVRActivityT<R>::showGlobalMenu() {
+    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_GLOBAL_MENU, NULL );
+}
 
 template<class R> bool GVRActivityT<R>::updateSensoredScene() {
-    return oculusJava_.Env->CallBooleanMethod(oculusJava_.ActivityObject, updateSensoredSceneMethodId);
+    return oculusJavaGlThread_.Env->CallBooleanMethod(oculusJavaGlThread_.ActivityObject, updateSensoredSceneMethodId);
 }
 
 template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
@@ -442,26 +402,26 @@ template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
 
 #define NUM_MULTI_SAMPLES   4
 template<class R> void GVRActivityT<R>::onSurfaceCreated() {
-    ovrModeParms parms = vrapi_DefaultModeParms(&oculusJava_);
+    ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
     parms.ResetWindowFullscreen = true;
     oculusMobile_ = vrapi_EnterVrMode(&parms);
 
     for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
         bool b = FrameBuffer[eye].createFb(VRAPI_TEXTURE_FORMAT_8888,
-                vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
-                vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
+                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
+                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
                 NUM_MULTI_SAMPLES);
     }
 
     ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
-            vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X),
-            vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
+            vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X),
+            vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
             0.0f);
     TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&ProjectionMatrix);
 }
 
 template<class R> void GVRActivityT<R>::onDrawFrame() {
-    ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJava_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(),
+    ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJavaGlThread_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(),
             NULL);
     parms.FrameIndex = ++frameIndex;
     parms.MinimumVsyncs = 1;
@@ -489,7 +449,7 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
             sensoredSceneUpdated_ = updateSensoredScene();
         }
         headRotationProvider_.predict(*this, parms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
-        oculusJava_.Env->CallVoidMethod(activityRenderingCallbacks_, onDrawEyeMethodId, eye);
+        oculusJavaGlThread_.Env->CallVoidMethod(activityRenderingCallbacks_, onDrawEyeMethodId, eye);
 
         FrameBuffer[eye].resolveFb();
 
@@ -510,10 +470,10 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
     vrapi_SubmitFrame(oculusMobile_, &parms);
 }
 
-template<class R> void GVRActivityT<R>::setupOculusJava(JNIEnv* env) {
-    oculusJava_.Env = env;
-    env->GetJavaVM(&oculusJava_.Vm);
-    oculusJava_.ActivityObject = activity_;
+template<class R> void GVRActivityT<R>::initializeOculusJava(JNIEnv& env, ovrJava& oculusJava) {
+    oculusJava.Env = &env;
+    env.GetJavaVM(&oculusJava.Vm);
+    oculusJava.ActivityObject = activity_;
 }
 
 template<class R> void GVRActivityT<R>::leaveVrApi() {
@@ -521,12 +481,12 @@ template<class R> void GVRActivityT<R>::leaveVrApi() {
 }
 
 template<class R> void GVRActivityT<R>::onDestroy() {
-    mainThreadJni_->DeleteGlobalRef(activity_);
-    mainThreadJni_->DeleteGlobalRef(activityRenderingCallbacks_);
+    jniMainThread_->DeleteGlobalRef(activity_);
+    jniMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);
 
-    mainThreadJni_->DeleteGlobalRef(activityClass_);
-    mainThreadJni_->DeleteGlobalRef(activityRenderingCallbacksClass_);
-    mainThreadJni_->DeleteGlobalRef(vrAppSettingsClass);
+    jniMainThread_->DeleteGlobalRef(activityClass_);
+    jniMainThread_->DeleteGlobalRef(activityRenderingCallbacksClass_);
+    jniMainThread_->DeleteGlobalRef(vrAppSettingsClass);
 }
 
 }
