@@ -97,55 +97,52 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
 
     std::vector<PostEffectData*> post_effects = camera->post_effect_data();
 
-    GL_V(glEnable (GL_DEPTH_TEST));
-    GL_V(glDepthFunc (GL_LEQUAL));
-    GL_V(glEnable (GL_CULL_FACE));
-    GL_V(glFrontFace (GL_CCW));
-    GL_V(glCullFace (GL_BACK));
-    GL_V(glEnable (GL_BLEND));
-    GL_V(glBlendEquation (GL_FUNC_ADD));
-    GL_V(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-    GL_V(glDisable (GL_POLYGON_OFFSET_FILL));
+    GL(glEnable (GL_DEPTH_TEST));
+    GL(glDepthFunc (GL_LEQUAL));
+    GL(glEnable (GL_CULL_FACE));
+    GL(glFrontFace (GL_CCW));
+    GL(glCullFace (GL_BACK));
+    GL(glEnable (GL_BLEND));
+    GL(glBlendEquation (GL_FUNC_ADD));
+    GL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+    GL(glDisable (GL_POLYGON_OFFSET_FILL));
 
     if (post_effects.size() == 0) {
-        GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
-        //GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
-        LOGI("mmarinov:Renderer::renderCamera: %d %d %d %d", viewportX, viewportY, viewportWidth, viewportHeight);
+        GL(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
+        GL(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
 
-        GL_V(glClearColor(camera->background_color_r(),
+        GL(glClearColor(camera->background_color_r(),
                 camera->background_color_g(), camera->background_color_b(),
                 camera->background_color_a()));
-        GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
+        GL(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
 
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
-            GL_V(renderRenderData(*it, view_matrix, projection_matrix,
+            GL(renderRenderData(*it, view_matrix, projection_matrix,
                     camera->render_mask(), shader_manager));
         }
     } else {
         RenderTexture* texture_render_texture = post_effect_render_texture_a;
         RenderTexture* target_render_texture;
 
-        GL_V(glBindFramebuffer(GL_FRAMEBUFFER,
+        GL(glBindFramebuffer(GL_FRAMEBUFFER,
                 texture_render_texture->getFrameBufferId()));
-//        GL_V(glViewport(0, 0, texture_render_texture->width(),
-//                texture_render_texture->height()));
-        LOGI("mmarinov:Renderer::renderCamera: 444-2 %d %d", texture_render_texture->width(), texture_render_texture->height());
+        GL(glViewport(0, 0, texture_render_texture->width(),
+                texture_render_texture->height()));
 
-        GL_V(glClearColor(camera->background_color_r(),
+        GL(glClearColor(camera->background_color_r(),
                 camera->background_color_g(), camera->background_color_b(),
                 camera->background_color_a()));
-        //GL_V(glClear(/*GL_DEPTH_BUFFER_BIT | */GL_COLOR_BUFFER_BIT));
+        //GL(glClear(/*GL_DEPTH_BUFFER_BIT | */GL_COLOR_BUFFER_BIT));
 
-        LOGI("mmarinov:Renderer::renderCamera: 4a");
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
             GL(renderRenderData(*it, view_matrix, projection_matrix,
                     camera->render_mask(), shader_manager));
         }
 
-        GL_V(glDisable(GL_DEPTH_TEST));
-        GL_V(glDisable(GL_CULL_FACE));
+        GL(glDisable(GL_DEPTH_TEST));
+        GL(glDisable(GL_CULL_FACE));
 
         for (int i = 0; i < post_effects.size() - 1; ++i) {
             if (i % 2 == 0) {
@@ -155,18 +152,18 @@ void Renderer::renderCamera(Scene* scene, Camera* camera, int framebufferId,
                 texture_render_texture = post_effect_render_texture_b;
                 target_render_texture = post_effect_render_texture_a;
             }
-            GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
-            GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
+            GL(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
+            GL(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
 
-            GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
+            GL(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
             GL(renderPostEffectData(camera, texture_render_texture,
                     post_effects[i], post_effect_shader_manager));
         }
 
-        GL_V(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
-        GL_V(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
-        GL_V(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
-        GL_V(renderPostEffectData(camera, texture_render_texture,
+        GL(glBindFramebuffer(GL_FRAMEBUFFER, framebufferId));
+        GL(glViewport(viewportX, viewportY, viewportWidth, viewportHeight));
+        GL(glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT));
+        GL(renderPostEffectData(camera, texture_render_texture,
                 post_effects.back(), post_effect_shader_manager));
     }
 }
@@ -520,15 +517,15 @@ void Renderer::renderRenderData(RenderData* render_data,
     if (render_mask & render_data->render_mask()) {
 
         if (render_data->offset()) {
-            GL_V(glEnable (GL_POLYGON_OFFSET_FILL));
-            GL_V(glPolygonOffset(render_data->offset_factor(),
+            GL(glEnable (GL_POLYGON_OFFSET_FILL));
+            GL(glPolygonOffset(render_data->offset_factor(),
                     render_data->offset_units()));
         }
         if (!render_data->depth_test()) {
-            GL_V(glDisable (GL_DEPTH_TEST));
+            GL(glDisable (GL_DEPTH_TEST));
         }
         if (!render_data->alpha_blend()) {
-            GL_V(glDisable (GL_BLEND));
+            GL(glDisable (GL_BLEND));
         }
         if (render_data->mesh() != 0) {
             for (int curr_pass = 0; curr_pass < render_data->pass_count();

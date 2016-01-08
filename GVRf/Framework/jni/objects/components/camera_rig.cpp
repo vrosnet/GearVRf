@@ -133,7 +133,6 @@ void CameraRig::resetYawPitch() {
 void CameraRig::setRotationSensorData(long long time_stamp, float w, float x,
         float y, float z, float gyro_x, float gyro_y, float gyro_z) {
     rotation_sensor_data_.update(time_stamp, w, x, y, z, gyro_x, gyro_y, gyro_z);
-    //LOGI("mmarinov:predict: yaw: %f", glm::yaw(rotation_sensor_data_.quaternion()));
 }
 
 void CameraRig::predict(float time) {

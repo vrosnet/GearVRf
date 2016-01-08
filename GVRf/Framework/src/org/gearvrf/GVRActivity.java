@@ -55,7 +55,7 @@ public class GVRActivity extends Activity {
     public static final int KEY_EVENT_UP = 5;
     public static final int KEY_EVENT_MAX = 6;
 
-    private GVRViewManager mGVRViewManager = null;
+    private GVRViewManager mViewManager;
     private GVRCamera mCamera;
     private VrAppSettings mAppSettings;
     private long mPtr;
@@ -68,12 +68,24 @@ public class GVRActivity extends Activity {
         System.loadLibrary("gvrf");
     }
 
-    private VrapiActivityHandler mActivityHandler = new VrapiActivityHandler(this);
+    public interface ActivityHandlerRenderingCallbacks {
+        public void onSurfaceCreated();
+        public void onBeforeDrawEyes();
+        public void onDrawEye(int eye);
+        public void onAfterDrawEyes();
+    }
+
+    public interface ActivityHandler {
+        public long onCreate();
+        public void onPause();
+        public void onResume();
+    }
 
     static native void nativeSetCamera(long appPtr, long camera);
     static native void nativeSetCameraRig(long appPtr, long cameraRig);
     static native void nativeOnDock(long appPtr);
     static native void nativeOnUndock(long appPtr);
+    static native void nativeOnDestroy(long appPtr);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,8 +114,8 @@ public class GVRActivity extends Activity {
 
     @Override
     protected void onPause() {
-        if (mGVRViewManager != null) {
-            mGVRViewManager.onPause();
+        if (mViewManager != null) {
+            mViewManager.onPause();
         }
         if (null != mDockEventReceiver) {
             mDockEventReceiver.stop();
@@ -115,8 +127,8 @@ public class GVRActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (mGVRViewManager != null) {
-            mGVRViewManager.onResume();
+        if (mViewManager != null) {
+            mViewManager.onResume();
         }
         if (null != mDockEventReceiver) {
             mDockEventReceiver.start();
@@ -126,9 +138,10 @@ public class GVRActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (mGVRViewManager != null) {
-            mGVRViewManager.onDestroy();
+        if (mViewManager != null) {
+            mViewManager.onDestroy();
         }
+        nativeOnDestroy(mPtr);
         super.onDestroy();
     }
 
@@ -155,18 +168,15 @@ public class GVRActivity extends Activity {
      */
     public void setScript(GVRScript gvrScript, String distortionDataFileName) {
         if (getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
-
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     distortionDataFileName, mAppSettings);
             onInitAppSettings(mAppSettings);
             if (isVrSupported() && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
-                mGVRViewManager = new GVRViewManager(this, gvrScript, xmlParser);
+                mViewManager = new GVRViewManager(this, gvrScript, xmlParser);
             } else {
-                mGVRViewManager = new GVRMonoscopicViewManager(this, gvrScript,
+                mViewManager = new GVRMonoscopicViewManager(this, gvrScript,
                         xmlParser);
             }
-
-            mActivityHandler.setViewManager(mGVRViewManager);
         } else {
             throw new IllegalArgumentException(
                     "You can not set orientation to portrait for GVRF apps.");
@@ -244,16 +254,6 @@ public class GVRActivity extends Activity {
         NativeGLDelete.processQueues();
     }
 
-    //called from native; move someplace better?
-    void onDrawEyeView(int eye) {
-        try {
-            mGVRViewManager.onDrawEyeView(eye);
-        } catch (final Exception e) {
-            Log.i("mmarinov", "onDrawEyeView : exception: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
     void setCamera(GVRCamera camera) {
         mCamera = camera;
         nativeSetCamera(mPtr, camera.getNative());
@@ -265,7 +265,7 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-//        boolean handled = mGVRViewManager.dispatchKeyEvent(event);
+//        boolean handled = mViewManager.dispatchKeyEvent(event);
 //        if (handled == false) {
 //            handled = super.dispatchKeyEvent(event);// VrActivity's
 //        }
@@ -275,7 +275,7 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-//        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
+//        boolean handled = mViewManager.dispatchMotionEvent(event);
 //        if (handled == false) {
 //            handled = super.dispatchGenericMotionEvent(event);// VrActivity's
 //        }
@@ -285,7 +285,7 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-//        boolean handled = mGVRViewManager.dispatchMotionEvent(event);
+//        boolean handled = mViewManager.dispatchMotionEvent(event);
 //
 //        if (handled == false) {
 //            handled = super.dispatchTouchEvent(event);// VrActivity's
@@ -347,7 +347,7 @@ public class GVRActivity extends Activity {
     }
 
     boolean updateSensoredScene() {
-        return mGVRViewManager.updateSensoredScene();
+        return mViewManager.updateSensoredScene();
     }
 
     /**
@@ -389,4 +389,31 @@ public class GVRActivity extends Activity {
 
     private DockEventReceiver mDockEventReceiver;
 
+    private final ActivityHandlerRenderingCallbacks mRenderingCallbacks = new ActivityHandlerRenderingCallbacks() {
+        @Override
+        public void onSurfaceCreated() {
+            mViewManager.onSurfaceCreated();
+        }
+
+        @Override
+        public void onBeforeDrawEyes() {
+            mViewManager.beforeDrawEyes();
+            mViewManager.onDrawFrame();
+        }
+
+        @Override
+        public void onAfterDrawEyes() {
+            mViewManager.afterDrawEyes();
+        }
+
+        @Override
+        public void onDrawEye(int eye) {
+            try {
+                mViewManager.onDrawEyeView(eye);
+            } catch (final Exception e) {
+                Log.e(TAG, "error in onDrawEyeView", e);
+            }
+        }
+};
+    private ActivityHandler mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
 }

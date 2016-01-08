@@ -49,7 +49,7 @@ void Java_org_gearvrf_GVRViewManager_renderCamera(JNIEnv * jni, jclass clazz,
     RenderTexture* post_effect_render_texture_b =
             reinterpret_cast<RenderTexture*>(jpost_effect_render_texture_b);
 
-    activity->viewManager->renderCamera(scene, camera,
+    activity->viewManager_.renderCamera(scene, camera,
             shader_manager, post_effect_shader_manager,
             post_effect_render_texture_a, post_effect_render_texture_b);
 }

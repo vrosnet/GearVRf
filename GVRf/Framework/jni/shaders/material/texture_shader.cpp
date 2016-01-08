@@ -202,13 +202,13 @@ void TextureShader::render(const glm::mat4& mv_matrix,
     mesh->generateVAO();
 
     if (use_light) {
-        GL_V(glUseProgram(program_light_->id()));
+        GL(glUseProgram(program_light_->id()));
     } else {
-        GL_V(glUseProgram(program_no_light_->id()));
+        GL(glUseProgram(program_no_light_->id()));
     }
 
-    GL_V(glActiveTexture (GL_TEXTURE0));
-    GL_V(glBindTexture(texture->getTarget(), texture->getId()));
+    GL(glActiveTexture (GL_TEXTURE0));
+    GL(glBindTexture(texture->getTarget(), texture->getId()));
 
     if (use_light) {
         glm::vec3 light_position = light->getVec3("position");

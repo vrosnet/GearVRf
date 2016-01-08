@@ -53,26 +53,18 @@ typedef struct
 template <class R> class GVRActivityT
 {
 public:
-    GVRActivityT(JNIEnv& jni, jobject activity);
+    GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks);
     virtual ~GVRActivityT() {
         //todo
     }
 
 //    virtual void        Configure( OVR::ovrSettings & settings );
     virtual void        OneTimeShutdown();
-//    virtual OVR::Matrix4f    Frame( const OVR::VrFrame & vrFrame );
 //    virtual bool        OnKeyEvent( const int keyCode, const int repeatCount, const OVR::KeyEventType eventType );
     bool                updateSensoredScene();
     void                setCameraRig(jlong cameraRig);
-    void                initJni();
 
-    // When launched by an intent, we may be viewing a partial
-    // scene for debugging, so always clear the screen to grey
-    // before drawing, instead of letting partial renders show through.
-    bool                forceScreenClear;
-    bool                ModelLoaded;
-
-    GVRViewManager*     viewManager = nullptr;
+    GVRViewManager viewManager_;
 
     Camera*             camera = nullptr;
     CameraRig*          cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
@@ -80,9 +72,10 @@ public:
     R                   headRotationProvider_;
 
 private:
-    JNIEnv*             uiJni;            // for use by the Java UI thread
+    JNIEnv*             mainThreadJni_;            // for use by the Java UI thread
 
-    jclass              activityClass = nullptr;    // must be looked up from main thread or FindClass() will fail
+    jclass activityClass_;                  // must be looked up from main thread or FindClass() will fail
+    jclass activityRenderingCallbacksClass_;
 
     jclass              vrAppSettingsClass = nullptr;
     jclass              eyeBufferParmsClass = nullptr;
@@ -91,22 +84,24 @@ private:
 
     jmethodID           oneTimeShutdownMethodId = nullptr;
 
-    jmethodID           drawEyeViewMethodId = nullptr;
+    jmethodID           onDrawEyeMethodId = nullptr;
 
     jmethodID           onKeyEventNativeMethodId = nullptr;
     jmethodID           updateSensoredSceneMethodId = nullptr;
 
     jclass              GetGlobalClassReference( const char * className ) const;
-    jmethodID           GetMethodID( const char * name, const char * signature );
+    jmethodID           GetMethodId(const jclass clazz, const char* name, const char* signature );
     jmethodID           GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
 
 public:
-    void onSurfaceCreated(ANativeWindow* nativeWindow);
+    void onSurfaceCreated();
     void onDrawFrame();
     void setupOculusJava(JNIEnv* env);
-    void onPause();
+    void leaveVrApi();
+    void onDestroy();
 
     jobject activity_;
+    jobject activityRenderingCallbacks_;
 
     ovrJava oculusJava_;
     ovrMobile* oculusMobile_ = nullptr;

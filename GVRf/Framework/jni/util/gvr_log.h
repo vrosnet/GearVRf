@@ -55,13 +55,12 @@ static void GLCheckErrors(const char* name)
         {
             break;
         }
-        LOGE( "mmarinov GL %s error: %s", name, GlErrorString( error ) );
+        LOGE( "gvrf: %s error: %s", name, GlErrorString( error ) );
         //std::terminate();
     }
 }
+
 #define GL( func )      func; GLCheckErrors(#func);
-#define GL_V( func )      func; GLCheckErrors(#func);
 //#define GL( func )      func;
-//#define GL_V( func )      func;
 
 #endif

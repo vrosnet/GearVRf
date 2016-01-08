@@ -457,7 +457,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     void onDrawEyeView(int eye) {
-        Log.i("mmarinov", "onDrawEyeView : "+eye);
         mCurrentEye = eye;
         /*if (!(mSensoredScene == null || !mMainScene.equals(mSensoredScene)))*/ {
             GVRCameraRig mainCameraRig = mMainScene.getMainCameraRig();
@@ -585,7 +584,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
 
         @Override
         public void beforeDrawEyes() {
-            Log.i("mmarinov", "beforeDrawEyes : first frame");
             mSplashScreen = mScript.createSplashScreen(GVRViewManager.this);
             if (mSplashScreen != null) {
                 getMainScene().addSceneObject(mSplashScreen);
@@ -622,7 +620,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
 
         @Override
         public void beforeDrawEyes() {
-            Log.i("mmarinov", "beforeDrawEyes : splash frames");
             // splash screen post-init animations
             long currentTime = doMemoryManagementAndPerFrameCallbacks();
 
@@ -663,7 +660,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     private final FrameHandler normalFrames = new FrameHandler() {
 
         public void beforeDrawEyes() {
-            Log.i("mmarinov", "beforeDrawEyes : normal frames");
             mMainScene.resetStats();
 
             GVRNotifications.notifyBeforeStep();
@@ -770,7 +766,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
                     && (mSensoredScene == null || !mMainScene.equals(mSensoredScene))) {
                 cameraRig.resetYaw();
                 mSensoredScene = mMainScene;
-                Log.i("mmarinov", "updateSensoredScene : java");
                 return true;
             }
         }
