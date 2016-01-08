@@ -283,7 +283,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     void beforeDrawEyes() {
-        Log.i("mmarinov", "beforeDrawEyes : ");
         mFrameHandler.beforeDrawEyes();
     }
 
@@ -541,8 +540,6 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
     }
 
     void afterDrawEyes() {
-        Log.i("mmarinov", "afterDrawEyes : ");
-
         // Execute post-rendering tasks (after drawing eyes, but
         // before after draw eye handlers)
         synchronized (mRunnablesPostRender) {

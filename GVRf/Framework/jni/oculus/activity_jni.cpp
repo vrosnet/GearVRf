@@ -38,20 +38,20 @@ static const char * app_settings_name = "org/gearvrf/utility/VrAppSettings";
 namespace gvr {
 
 extern "C" {
-JNIEXPORT long JNICALL Java_org_gearvrf_GVRActivity_nativeOnCreate(JNIEnv * jni, jclass clazz, jobject activity)
+JNIEXPORT long JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnCreate(JNIEnv * jni, jclass clazz, jobject activity)
 {
     GVRActivity* gvrActivity = new GVRActivity(*jni, activity);
     gvrActivity->initJni();
     return reinterpret_cast<long>(gvrActivity);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnPause(JNIEnv * jni, jclass clazz, jlong appPtr)
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnPause(JNIEnv * jni, jclass clazz, jlong appPtr)
 {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->onPause();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnSurfaceCreated(
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceCreated(
         JNIEnv * jni, jclass clazz, jlong appPtr, jobject surface)
 {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
@@ -62,7 +62,7 @@ JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnSurfaceCreated(
     activity->onSurfaceCreated(newNativeWindow);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnDrawFrame(
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDrawFrame(
         JNIEnv * jni, jclass clazz, jlong appPtr)
 {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
@@ -265,7 +265,6 @@ template <class R> void GVRActivityT<R>::initJni() {
 //    onKeyEventNativeMethodId = GetMethodID("onKeyEventNative", "(II)Z");
     updateSensoredSceneMethodId = GetMethodID("updateSensoredScene", "()Z");
     //getAppSettingsMethodId = GetMethodID("getAppSettings", "()Lorg/gearvrf/utility/VrAppSettings;");
-
 
     setupOculusJava(uiJni);
 
