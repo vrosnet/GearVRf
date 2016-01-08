@@ -31,9 +31,9 @@
 #include "GLES3/gl3.h"
 #include "GLES3/gl3ext.h"
 
-
 static const char* activityClassName = "org/gearvrf/GVRActivity";
-static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/GVRActivity$ActivityHandlerRenderingCallbacks";
+static const char* activityHandlerRenderingCallbacksClassName =
+        "org/gearvrf/GVRActivity$ActivityHandlerRenderingCallbacks";
 static const char* app_settings_name = "org/gearvrf/utility/VrAppSettings";
 
 namespace gvr {
@@ -44,216 +44,65 @@ JNIEXPORT long JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnCreate(JNIE
     return reinterpret_cast<long>(new GVRActivity(*jni, activity, callbacks));
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrApi(JNIEnv * jni, jclass clazz, jlong appPtr)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrApi(JNIEnv * jni, jclass clazz,
+        jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->leaveVrApi();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDestroy(JNIEnv * jni, jclass clazz, jlong appPtr)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->onDestroy();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceCreated(
-        JNIEnv * jni, jclass clazz, jlong appPtr)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceCreated(JNIEnv * jni, jclass clazz,
+        jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->setupOculusJava(jni);
     activity->onSurfaceCreated();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDrawFrame(
-        JNIEnv * jni, jclass clazz, jlong appPtr)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDrawFrame(JNIEnv * jni, jclass clazz,
+        jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->onDrawFrame();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeSetCamera(
-        JNIEnv * jni, jclass clazz, jlong appPtr, jlong jcamera)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeSetCamera(JNIEnv * jni, jclass clazz, jlong appPtr,
+        jlong jcamera) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     Camera* camera = reinterpret_cast<Camera*>(jcamera);
     activity->camera = camera;
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeSetCameraRig(
-        JNIEnv * jni, jclass clazz, jlong appPtr, jlong cameraRig)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeSetCameraRig(JNIEnv * jni, jclass clazz, jlong appPtr,
+        jlong cameraRig) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->setCameraRig(cameraRig);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnDock(
-        JNIEnv * jni, jclass clazz, jlong appPtr)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnDock(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onDock();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnUndock(
-        JNIEnv * jni, jclass clazz, jlong appPtr)
-{
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnUndock(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onUndock();
 }
 }
 
-
-void ovrFramebuffer_Clear( ovrFramebuffer * frameBuffer )
-{
-    frameBuffer->Width = 0;
-    frameBuffer->Height = 0;
-    frameBuffer->Multisamples = 0;
-    frameBuffer->TextureSwapChainLength = 0;
-    frameBuffer->TextureSwapChainIndex = 0;
-    frameBuffer->ColorTextureSwapChain = NULL;
-    frameBuffer->DepthBuffers = NULL;
-    frameBuffer->FrameBuffers = NULL;
-}
-
-typedef void (GL_APIENTRY* PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC) (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
-typedef void (GL_APIENTRY* PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLsizei samples);
-
-const char * GlFrameBufferStatusString( GLenum status )
-{
-    switch ( status )
-    {
-        case GL_FRAMEBUFFER_UNDEFINED:                      return "GL_FRAMEBUFFER_UNDEFINED";
-        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:          return "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
-        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:  return "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
-        case GL_FRAMEBUFFER_UNSUPPORTED:                    return "GL_FRAMEBUFFER_UNSUPPORTED";
-        case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:         return "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE";
-        default:                                            return "unknown";
-    }
-}
-
-bool ovrFramebuffer_Create( ovrFramebuffer * frameBuffer, const ovrTextureFormat colorFormat, const int width, const int height, const int multisamples )
-{
-    frameBuffer->Width = width;
-    frameBuffer->Height = height;
-    frameBuffer->Multisamples = multisamples;
-
-    frameBuffer->ColorTextureSwapChain = vrapi_CreateTextureSwapChain( VRAPI_TEXTURE_TYPE_2D, colorFormat, width, height, 1, true );
-    frameBuffer->TextureSwapChainLength = vrapi_GetTextureSwapChainLength( frameBuffer->ColorTextureSwapChain );
-    frameBuffer->DepthBuffers = (GLuint *)malloc( frameBuffer->TextureSwapChainLength * sizeof( GLuint ) );
-    frameBuffer->FrameBuffers = (GLuint *)malloc( frameBuffer->TextureSwapChainLength * sizeof( GLuint ) );
-
-    PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC glRenderbufferStorageMultisampleEXT =
-        (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC)eglGetProcAddress( "glRenderbufferStorageMultisampleEXT" );
-    PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT =
-        (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC)eglGetProcAddress( "glFramebufferTexture2DMultisampleEXT" );
-
-    for ( int i = 0; i < frameBuffer->TextureSwapChainLength; i++ )
-    {
-        // Create the color buffer texture.
-        const GLuint colorTexture = vrapi_GetTextureSwapChainHandle( frameBuffer->ColorTextureSwapChain, i );
-        GL( glBindTexture( GL_TEXTURE_2D, colorTexture ) );
-        GL( glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE ) );
-        GL( glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE ) );
-        GL( glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR ) );
-        GL( glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR ) );
-        GL( glBindTexture( GL_TEXTURE_2D, 0 ) );
-
-        if ( multisamples > 1 && glRenderbufferStorageMultisampleEXT != NULL && glFramebufferTexture2DMultisampleEXT != NULL )
-        {
-            // Create multisampled depth buffer.
-            GL( glGenRenderbuffers( 1, &frameBuffer->DepthBuffers[i] ) );
-            GL( glBindRenderbuffer( GL_RENDERBUFFER, frameBuffer->DepthBuffers[i] ) );
-            GL( glRenderbufferStorageMultisampleEXT( GL_RENDERBUFFER, multisamples, GL_DEPTH_COMPONENT24, width, height ) );
-            GL( glBindRenderbuffer( GL_RENDERBUFFER, 0 ) );
-
-            // Create the frame buffer.
-            GL( glGenFramebuffers( 1, &frameBuffer->FrameBuffers[i] ) );
-            GL( glBindFramebuffer( GL_FRAMEBUFFER, frameBuffer->FrameBuffers[i] ) );
-            GL( glFramebufferTexture2DMultisampleEXT( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0, multisamples ) );
-            GL( glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i] ) );
-            GL( GLenum renderFramebufferStatus = glCheckFramebufferStatus( GL_FRAMEBUFFER ) );
-            GL( glBindFramebuffer( GL_FRAMEBUFFER, 0 ) );
-            if ( renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE )
-            {
-                LOGE( "Incomplete frame buffer object: %s", GlFrameBufferStatusString( renderFramebufferStatus ) );
-                return false;
-            }
-        }
-        else
-        {
-            // Create depth buffer.
-            GL( glGenRenderbuffers( 1, &frameBuffer->DepthBuffers[i] ) );
-            GL( glBindRenderbuffer( GL_RENDERBUFFER, frameBuffer->DepthBuffers[i] ) );
-            GL( glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height ) );
-            GL( glBindRenderbuffer( GL_RENDERBUFFER, 0 ) );
-
-            // Create the frame buffer.
-            GL( glGenFramebuffers( 1, &frameBuffer->FrameBuffers[i] ) );
-            GL( glBindFramebuffer( GL_FRAMEBUFFER, frameBuffer->FrameBuffers[i] ) );
-            GL( glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->DepthBuffers[i] ) );
-            GL( glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0 ) );
-            GL( GLenum renderFramebufferStatus = glCheckFramebufferStatus( GL_FRAMEBUFFER ) );
-            GL( glBindFramebuffer( GL_FRAMEBUFFER, 0 ) );
-            if ( renderFramebufferStatus != GL_FRAMEBUFFER_COMPLETE )
-            {
-                LOGE( "Incomplete frame buffer object: %s", GlFrameBufferStatusString( renderFramebufferStatus ) );
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-void ovrFramebuffer_Destroy( ovrFramebuffer * frameBuffer )
-{
-    GL( glDeleteFramebuffers( frameBuffer->TextureSwapChainLength, frameBuffer->FrameBuffers ) );
-    GL( glDeleteRenderbuffers( frameBuffer->TextureSwapChainLength, frameBuffer->DepthBuffers ) );
-    vrapi_DestroyTextureSwapChain( frameBuffer->ColorTextureSwapChain );
-
-    free( frameBuffer->DepthBuffers );
-    free( frameBuffer->FrameBuffers );
-
-    ovrFramebuffer_Clear( frameBuffer );
-}
-
-void ovrFramebuffer_SetCurrent( ovrFramebuffer * frameBuffer )
-{
-    GL( glBindFramebuffer( GL_FRAMEBUFFER, frameBuffer->FrameBuffers[frameBuffer->TextureSwapChainIndex] ) );
-}
-
-void ovrFramebuffer_SetNone()
-{
-    GL( glBindFramebuffer( GL_FRAMEBUFFER, 0 ) );
-}
-
-void ovrFramebuffer_Resolve( ovrFramebuffer * frameBuffer )
-{
-    // Discard the depth buffer, so the tiler won't need to write it back out to memory.
-    const GLenum depthAttachment[1] = { GL_DEPTH_ATTACHMENT };
-    GL( glInvalidateFramebuffer( GL_FRAMEBUFFER, 1, depthAttachment ) );
-
-    // Flush this frame worth of commands.
-    GL(glFlush());
-}
-
-void ovrFramebuffer_Advance( ovrFramebuffer * frameBuffer )
-{
-    // Advance to the next texture from the set.
-    frameBuffer->TextureSwapChainIndex = ( frameBuffer->TextureSwapChainIndex + 1 ) % frameBuffer->TextureSwapChainLength;
-}
-
-
 //=============================================================================
 //                             GVRActivity
 //=============================================================================
 
-template <class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks)
-    : mainThreadJni_(&jni) {
+template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks) :
+        mainThreadJni_(&jni) {
 
     activity_ = jni.NewGlobalRef(activity);
     activityRenderingCallbacks_ = jni.NewGlobalRef(callbacks);
 
-    activityClass_ = GetGlobalClassReference( activityClassName );
+    activityClass_ = GetGlobalClassReference(activityClassName);
     activityRenderingCallbacksClass_ = GetGlobalClassReference(activityHandlerRenderingCallbacksClassName);
     vrAppSettingsClass = GetGlobalClassReference(app_settings_name);
 
@@ -271,14 +120,15 @@ template <class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, 
     const ovrInitParms initParms = vrapi_DefaultInitParms(&oculusJava_);
     int32_t initResult = vrapi_Initialize(&initParms);
     if (VRAPI_INITIALIZE_SUCCESS != initResult) {
-        char const * msg = initResult == VRAPI_INITIALIZE_PERMISSIONS_ERROR ?
-                                        "Thread priority security exception. Make sure the APK is signed." :
-                                        "VrApi initialization error.";
-        SystemActivities_DisplayError( &oculusJava_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg );
+        char const * msg =
+                initResult == VRAPI_INITIALIZE_PERMISSIONS_ERROR ?
+                        "Thread priority security exception. Make sure the APK is signed." :
+                        "VrApi initialization error.";
+        SystemActivities_DisplayError(&oculusJava_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg);
     }
 }
 
-template <class R> jmethodID GVRActivityT<R>::GetStaticMethodID( jclass clazz, const char * name,
+template<class R> jmethodID GVRActivityT<R>::GetStaticMethodID(jclass clazz, const char * name,
         const char * signature) {
     jmethodID mid = mainThreadJni_->GetStaticMethodID(clazz, name, signature);
     if (!mid) {
@@ -287,7 +137,7 @@ template <class R> jmethodID GVRActivityT<R>::GetStaticMethodID( jclass clazz, c
     return mid;
 }
 
-template <class R> jmethodID GVRActivityT<R>::GetMethodId(const jclass clazz, const char* name, const char* signature) {
+template<class R> jmethodID GVRActivityT<R>::GetMethodId(const jclass clazz, const char* name, const char* signature) {
     const jmethodID mid = mainThreadJni_->GetMethodID(clazz, name, signature);
     if (nullptr == mid) {
         std::terminate();
@@ -295,7 +145,8 @@ template <class R> jmethodID GVRActivityT<R>::GetMethodId(const jclass clazz, co
     return mid;
 }
 
-template <class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalClassReference(const char * className) const {
+template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalClassReference(
+        const char * className) const {
     jclass lc = mainThreadJni_->FindClass(className);
     if (lc == 0) {
         //FAIL( "FindClass( %s ) failed", className);
@@ -528,11 +379,10 @@ template <class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobal
 ////    }
 //}
 
-template <class R> void GVRActivityT<R>::OneTimeShutdown()
-{
+template<class R> void GVRActivityT<R>::OneTimeShutdown() {
 //    app->GetJava()->Env->CallVoidMethod(app->GetJava()->ActivityObject, oneTimeShutdownMethodId);
 
-    // Free GL resources
+// Free GL resources
 }
 
 //template <class R> OVR::Matrix4f GVRActivityT<R>::Frame( const OVR::VrFrame & vrFrame )
@@ -581,61 +431,58 @@ template <class R> void GVRActivityT<R>::OneTimeShutdown()
 //    return false;
 //}
 
-template <class R> bool GVRActivityT<R>::updateSensoredScene() {
+template<class R> bool GVRActivityT<R>::updateSensoredScene() {
     return oculusJava_.Env->CallBooleanMethod(oculusJava_.ActivityObject, updateSensoredSceneMethodId);
 }
 
-template <class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
+template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
     cameraRig_ = reinterpret_cast<CameraRig*>(cameraRig);
     sensoredSceneUpdated_ = false;
 }
 
 #define NUM_MULTI_SAMPLES   4
-template <class R> void GVRActivityT<R>::onSurfaceCreated() {
+template<class R> void GVRActivityT<R>::onSurfaceCreated() {
     ovrModeParms parms = vrapi_DefaultModeParms(&oculusJava_);
     parms.ResetWindowFullscreen = true;
-    oculusMobile_ = vrapi_EnterVrMode( &parms );
+    oculusMobile_ = vrapi_EnterVrMode(&parms);
 
-    for ( int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++ )
-    {
-        bool b = ovrFramebuffer_Create( &FrameBuffer[eye],
-                                VRAPI_TEXTURE_FORMAT_8888,
-                                vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH ),
-                                vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT ),
-                                NUM_MULTI_SAMPLES );
+    for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+        bool b = FrameBuffer[eye].createFb(VRAPI_TEXTURE_FORMAT_8888,
+                vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
+                vrapi_GetSystemPropertyInt(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
+                NUM_MULTI_SAMPLES);
     }
 
     ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
-                                        vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X ),
-                                        vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y ),
-                                        0.0f, 0.0f, 1.0f, 0.0f );
-    TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection( &ProjectionMatrix );
+            vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X),
+            vrapi_GetSystemPropertyFloat(&oculusJava_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
+            0.0f);
+    TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&ProjectionMatrix);
 }
 
-template <class R> void GVRActivityT<R>::onDrawFrame() {
-    ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJava_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(), NULL );
+template<class R> void GVRActivityT<R>::onDrawFrame() {
+    ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJava_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(),
+            NULL);
     parms.FrameIndex = ++frameIndex;
     parms.MinimumVsyncs = 1;
     parms.PerformanceParms = vrapi_DefaultPerformanceParms();
     parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Flags |= VRAPI_FRAME_LAYER_FLAG_CHROMATIC_ABERRATION_CORRECTION;
 
-    const double predictedDisplayTime = vrapi_GetPredictedDisplayTime( oculusMobile_, frameIndex );
-    const ovrTracking baseTracking = vrapi_GetPredictedTracking( oculusMobile_, predictedDisplayTime );
+    const double predictedDisplayTime = vrapi_GetPredictedDisplayTime(oculusMobile_, frameIndex);
+    const ovrTracking baseTracking = vrapi_GetPredictedTracking(oculusMobile_, predictedDisplayTime);
 
     const ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
-    const ovrTracking tracking = vrapi_ApplyHeadModel( &headModelParms, &baseTracking );
+    const ovrTracking tracking = vrapi_ApplyHeadModel(&headModelParms, &baseTracking);
 
     // Render the eye images.
-    for ( int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++ )
-    {
-        ovrTracking updatedTracking = vrapi_GetPredictedTracking(oculusMobile_, tracking.HeadPose.TimeInSeconds );
+    for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+        ovrTracking updatedTracking = vrapi_GetPredictedTracking(oculusMobile_, tracking.HeadPose.TimeInSeconds);
         updatedTracking.HeadPose.Pose.Position = tracking.HeadPose.Pose.Position;
         //ovrTracking updatedTracking = *tracking;
 
-        ovrFramebuffer * frameBuffer = &FrameBuffer[eye];
-        ovrFramebuffer_SetCurrent( frameBuffer );
-        GL(glViewport(0, 0, frameBuffer->Width, frameBuffer->Height));
-        GL(glScissor(0, 0, frameBuffer->Width, frameBuffer->Height));
+        FrameBuffer[eye].setCurrentFb();
+        GL(glViewport(0, 0, FrameBuffer[eye].Width, FrameBuffer[eye].Height));
+        GL(glScissor(0, 0, FrameBuffer[eye].Width, FrameBuffer[eye].Height));
 
         //todo
         if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
@@ -644,35 +491,36 @@ template <class R> void GVRActivityT<R>::onDrawFrame() {
         headRotationProvider_.predict(*this, parms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
         oculusJava_.Env->CallVoidMethod(activityRenderingCallbacks_, onDrawEyeMethodId, eye);
 
-        ovrFramebuffer_Resolve( frameBuffer );
+        FrameBuffer[eye].resolveFb();
 
-        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].ColorTextureSwapChain = frameBuffer->ColorTextureSwapChain;
-        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].TextureSwapChainIndex = frameBuffer->TextureSwapChainIndex;
-        for ( int layer = 0; layer < VRAPI_FRAME_LAYER_TYPE_MAX; layer++ )
-        {
+        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].ColorTextureSwapChain =
+                FrameBuffer[eye].ColorTextureSwapChain;
+        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].TextureSwapChainIndex =
+                FrameBuffer[eye].TextureSwapChainIndex;
+        for (int layer = 0; layer < VRAPI_FRAME_LAYER_TYPE_MAX; layer++) {
             parms.Layers[layer].Textures[eye].TexCoordsFromTanAngles = TexCoordsTanAnglesMatrix;
             parms.Layers[layer].Textures[eye].HeadPose = updatedTracking.HeadPose;
         }
 
-        ovrFramebuffer_Advance( frameBuffer );
+        FrameBuffer[eye].advanceFb();
     }
 
-    ovrFramebuffer_SetNone();
+    FbWrapper::setNoneFb();
 
     vrapi_SubmitFrame(oculusMobile_, &parms);
 }
 
-template <class R> void GVRActivityT<R>::setupOculusJava(JNIEnv* env) {
+template<class R> void GVRActivityT<R>::setupOculusJava(JNIEnv* env) {
     oculusJava_.Env = env;
     env->GetJavaVM(&oculusJava_.Vm);
     oculusJava_.ActivityObject = activity_;
 }
 
-template <class R> void GVRActivityT<R>::leaveVrApi() {
+template<class R> void GVRActivityT<R>::leaveVrApi() {
     vrapi_LeaveVrMode(oculusMobile_);
 }
 
-template <class R> void GVRActivityT<R>::onDestroy() {
+template<class R> void GVRActivityT<R>::onDestroy() {
     mainThreadJni_->DeleteGlobalRef(activity_);
     mainThreadJni_->DeleteGlobalRef(activityRenderingCallbacks_);
 

@@ -21,6 +21,7 @@
 #include "sensor/ksensor/k_sensor.h"
 #include "../objects/components/camera.h"
 #include "../objects/components/camera_rig.h"
+#include "fbwrapper.h"
 
 #include "glm/glm.hpp"
 
@@ -36,18 +37,6 @@ namespace gvr {
 
 class OculusHeadRotation;
 class KSensorHeadRotation;
-
-typedef struct
-{
-    int                     Width;
-    int                     Height;
-    int                     Multisamples;
-    int                     TextureSwapChainLength;
-    int                     TextureSwapChainIndex = 0;
-    ovrTextureSwapChain *   ColorTextureSwapChain;
-    GLuint *                DepthBuffers;
-    GLuint *                FrameBuffers;
-} ovrFramebuffer;
 
 
 template <class R> class GVRActivityT
@@ -106,7 +95,7 @@ public:
     ovrJava oculusJava_;
     ovrMobile* oculusMobile_ = nullptr;
     long long frameIndex = 1;
-    ovrFramebuffer  FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
+    FbWrapper FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
     ovrMatrix4f     ProjectionMatrix;
     ovrMatrix4f     TexCoordsTanAnglesMatrix;
 };
