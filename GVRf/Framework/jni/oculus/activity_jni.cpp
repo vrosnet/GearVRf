@@ -41,7 +41,13 @@ namespace gvr {
 extern "C" {
 JNIEXPORT long JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnCreate(JNIEnv * jni, jclass clazz,
         jobject activity, jobject callbacks) {
-    return reinterpret_cast<long>(new GVRActivity(*jni, activity, callbacks));
+    GVRActivity* gvrActivity = new GVRActivity(*jni, activity, callbacks);
+    if (gvrActivity->initializeVrApi()) {
+        return reinterpret_cast<long>(new GVRActivity(*jni, activity, callbacks));
+    } else {
+        delete gvrActivity;
+        return 0;
+    }
 }
 
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrApi(JNIEnv * jni, jclass clazz,
@@ -115,7 +121,9 @@ template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, j
     onDrawEyeMethodId = GetMethodId(activityRenderingCallbacksClass_, "onDrawEye", "(I)V");
     updateSensoredSceneMethodId = GetMethodId(activityClass_, "updateSensoredScene", "()Z");
     //getAppSettingsMethodId = GetMethodID("getAppSettings", "()Lorg/gearvrf/utility/VrAppSettings;");
+}
 
+template<class R> bool GVRActivityT<R>::initializeVrApi() {
     initializeOculusJava(*jniMainThread_, oculusJavaMainThread_);
     SystemActivities_Init(&oculusJavaMainThread_);
 
@@ -127,7 +135,9 @@ template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, j
                         "Thread priority security exception. Make sure the APK is signed." :
                         "VrApi initialization error.";
         SystemActivities_DisplayError(&oculusJavaMainThread_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg);
+        return false;
     }
+    return true;
 }
 
 template<class R> jmethodID GVRActivityT<R>::GetStaticMethodID(jclass clazz, const char * name,

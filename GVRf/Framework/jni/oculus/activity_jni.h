@@ -82,6 +82,7 @@ private:
 public:
     void onSurfaceCreated();
     void onDrawFrame();
+    bool initializeVrApi();
     void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
     void leaveVrApi();
     void onDestroy();
