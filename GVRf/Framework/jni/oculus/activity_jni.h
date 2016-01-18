@@ -43,41 +43,35 @@ template <class R> class GVRActivityT
 {
 public:
     GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks);
-    virtual ~GVRActivityT() {
-    }
+    virtual ~GVRActivityT();
 
 //    virtual void        Configure( OVR::ovrSettings & settings );
-    virtual void        OneTimeShutdown();
-    bool                updateSensoredScene();
-    void                setCameraRig(jlong cameraRig);
+    bool updateSensoredScene();
+    void setCameraRig(jlong cameraRig);
 
     GVRViewManager viewManager_;
 
-    Camera*             camera = nullptr;
-    CameraRig*          cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
-    bool                sensoredSceneUpdated_ = false;
-    R                   headRotationProvider_;
+    Camera* camera = nullptr;
+    CameraRig* cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
+    bool sensoredSceneUpdated_ = false;
+    R headRotationProvider_;
 
 private:
-    JNIEnv* jniMainThread_;                     // for use by the Java UI thread
+    JNIEnv* jniMainThread_ = nullptr;           // for use by the Java UI thread
 
-    jclass activityClass_;                      // must be looked up from main thread or FindClass() will fail
-    jclass activityRenderingCallbacksClass_;
+    jclass activityClass_ = nullptr;            // must be looked up from main thread or FindClass() will fail
+    jclass activityRenderingCallbacksClass_ = nullptr;
 
-    jclass              vrAppSettingsClass = nullptr;
-    jclass              eyeBufferParmsClass = nullptr;
+    jclass vrAppSettingsClass_ = nullptr;
+    jclass eyeBufferParmsClass = nullptr;
 
-    jmethodID           getAppSettingsMethodId = nullptr;
+    jmethodID getAppSettingsMethodId = nullptr;
+    jmethodID onDrawEyeMethodId = nullptr;
+    jmethodID updateSensoredSceneMethodId = nullptr;
 
-    jmethodID           oneTimeShutdownMethodId = nullptr;
-
-    jmethodID           onDrawEyeMethodId = nullptr;
-
-    jmethodID           updateSensoredSceneMethodId = nullptr;
-
-    jclass              GetGlobalClassReference( const char * className ) const;
-    jmethodID           GetMethodId(const jclass clazz, const char* name, const char* signature );
-    jmethodID           GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
+    jclass GetGlobalClassReference( const char * className ) const;
+    jmethodID GetMethodId(const jclass clazz, const char* name, const char* signature );
+    jmethodID GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
 
 public:
     void onSurfaceCreated();
@@ -88,16 +82,16 @@ public:
     void onDestroy();
     void showGlobalMenu();
 
-    jobject activity_;
-    jobject activityRenderingCallbacks_;
+    jobject activity_ = nullptr;
+    jobject activityRenderingCallbacks_ = nullptr;
 
     ovrJava oculusJavaMainThread_;
     ovrJava oculusJavaGlThread_;
     ovrMobile* oculusMobile_ = nullptr;
     long long frameIndex = 1;
     FbWrapper FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
-    ovrMatrix4f     ProjectionMatrix;
-    ovrMatrix4f     TexCoordsTanAnglesMatrix;
+    ovrMatrix4f ProjectionMatrix;
+    ovrMatrix4f TexCoordsTanAnglesMatrix;
 };
 
 

@@ -83,6 +83,10 @@ public class GVRActivity extends Activity {
         public void onPause();
 
         public void onResume();
+
+        public void onDestroy();
+
+        public boolean dispatchKeyEvent(KeyEvent event);
     }
 
     static native void nativeSetCamera(long appPtr, long camera);
@@ -94,8 +98,6 @@ public class GVRActivity extends Activity {
     static native void nativeOnUndock(long appPtr);
 
     static native void nativeOnDestroy(long appPtr);
-
-    static native void nativeShowGlobalMenu(long appPtr);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -273,11 +275,9 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.isLongPress() && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
-            nativeShowGlobalMenu(mPtr);
+        if (mActivityHandler.dispatchKeyEvent(event)) {
             return true;
         }
-
         boolean handled = mViewManager.dispatchKeyEvent(event);
         if (handled == false) {
             handled = super.dispatchKeyEvent(event);

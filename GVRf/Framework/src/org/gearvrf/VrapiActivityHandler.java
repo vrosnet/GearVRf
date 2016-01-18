@@ -18,6 +18,7 @@ import android.opengl.GLSurfaceView.EGLWindowSurfaceFactory;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.HandlerThread;
 import android.view.Choreographer;
+import android.view.KeyEvent;
 import android.view.Choreographer.FrameCallback;
 
 public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
@@ -92,6 +93,22 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
         if (null != mSurfaceView) {
             mSurfaceView.onResume();
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        if (0 != mPtr) {
+            nativeOnDestroy(mPtr);
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.isLongPress() && event.getKeyCode() == KeyEvent.KEYCODE_BACK && 0 != mPtr) {
+            nativeShowGlobalMenu(mPtr);
+            return true;
+        }
+        return false;
     }
 
     private final EGLContextFactory mContextFactory = new EGLContextFactory() {
@@ -243,32 +260,13 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
     }
 
     private final Renderer mRenderer = new Renderer() {
-        EGLConfig mConfig;
+        private EGLConfig mConfig;
 
         @Override
         public void onSurfaceCreated(final GL10 gl, final EGLConfig config) {
             Log.i(TAG, "onSurfaceCreated");
 
             mConfig = config;
-            // EGL10 egl = (EGL10) EGLContext.getEGL();
-            // EGLDisplay display =
-            // egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
-            // EGLContext context = egl.eglGetCurrentContext();
-            // createWindowSurface(mSurfaceView.getHolder(), egl, display,
-            // config, context);
-            //
-            // nativeOnSurfaceCreated(mPtr,
-            // mSurfaceView.getHolder().getSurface());
-            //
-            // mGVRViewManager.onSurfaceCreated();
-            // startChoreographerThreadIfNotStarted();
-
-            // mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
-        }
-
-        @Override
-        public void onSurfaceChanged(final GL10 gl, final int ignored1, final int ignored2) {
-            Log.i(TAG, "onSurfaceChanged");
 
             final EGL10 egl = (EGL10) EGLContext.getEGL();
             final EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
@@ -300,6 +298,12 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
 
             mCallbacks.onSurfaceCreated();
             startChoreographerThreadIfNotStarted();
+            // mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);??
+        }
+
+        @Override
+        public void onSurfaceChanged(final GL10 gl, final int ignored1, final int ignored2) {
+            Log.i(TAG, "onSurfaceChanged");
         }
 
         @Override
@@ -316,6 +320,9 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
 
     private static native void nativeOnDrawFrame(long ptr);
 
-    //must be called on the rendering thread
     private static native void nativeLeaveVrApi(long ptr);
+
+    private static native void nativeOnDestroy(long ptr);
+
+    private static native void nativeShowGlobalMenu(long appPtr);
 }
