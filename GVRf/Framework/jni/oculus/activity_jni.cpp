@@ -50,10 +50,10 @@ JNIEXPORT long JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnCreate(JNIE
     }
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrApi(JNIEnv * jni, jclass clazz,
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrMode(JNIEnv * jni, jclass clazz,
         jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
-    activity->leaveVrApi();
+    activity->leaveVrMode();
 }
 
 JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
@@ -66,6 +66,13 @@ JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceCrea
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->initializeOculusJava(*jni, activity->oculusJavaGlThread_);
     activity->onSurfaceCreated();
+}
+
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceChanged(JNIEnv * jni, jclass clazz,
+        jlong appPtr) {
+    GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
+    activity->initializeOculusJava(*jni, activity->oculusJavaGlThread_);
+    activity->onSurfaceChanged();
 }
 
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDrawFrame(JNIEnv * jni, jclass clazz,
@@ -426,9 +433,7 @@ template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
 template<class R> void GVRActivityT<R>::onSurfaceCreated() {
     LOGV("GVRActivityT<R>::onSurfaceCreated()");
 
-    ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
-    parms.ResetWindowFullscreen = true;
-    oculusMobile_ = vrapi_EnterVrMode(&parms);
+    enterVrMode();
 
     for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
         bool b = FrameBuffer[eye].createFb(VRAPI_TEXTURE_FORMAT_8888,
@@ -442,6 +447,12 @@ template<class R> void GVRActivityT<R>::onSurfaceCreated() {
             vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
             0.0f);
     TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&ProjectionMatrix);
+}
+
+template<class R> void GVRActivityT<R>::onSurfaceChanged() {
+    LOGV("GVRActivityT<R>::onSurfaceChanged()");
+
+    enterVrMode();
 }
 
 template<class R> void GVRActivityT<R>::onDrawFrame() {
@@ -500,13 +511,31 @@ template<class R> void GVRActivityT<R>::initializeOculusJava(JNIEnv& env, ovrJav
     oculusJava.ActivityObject = activity_;
 }
 
-template<class R> void GVRActivityT<R>::leaveVrApi() {
-    LOGV("GVRActivityT<R>::leaveVrApi()");
+template<class R> void GVRActivityT<R>::leaveVrMode() {
+    LOGV("GVRActivityT<R>::leaveVrMode()");
     vrapi_LeaveVrMode(oculusMobile_);
+    oculusMobile_ = nullptr;
+}
+
+template<class R> void GVRActivityT<R>::enterVrMode() {
+    LOGV("GVRActivityT<R>::enterVrMode()");
+
+    if (oculusMobile_) {
+        LOGV("GVRActivityT<R>::enterVrMode() already entered, exiting early");
+        return;
+    }
+
+    ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
+    parms.ResetWindowFullscreen = true;
+
+    oculusMobile_ = vrapi_EnterVrMode(&parms);
 }
 
 template<class R> void GVRActivityT<R>::onDestroy() {
     LOGV("GVRActivityT<R>::onDestroy()");
+
+    SystemActivities_Shutdown(&oculusJavaMainThread_);
+    vrapi_Shutdown();
 
     jniMainThread_->DeleteGlobalRef(activity_);
     jniMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);

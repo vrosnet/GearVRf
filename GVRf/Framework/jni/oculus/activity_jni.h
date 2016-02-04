@@ -75,10 +75,12 @@ private:
 
 public:
     void onSurfaceCreated();
+    void onSurfaceChanged();
     void onDrawFrame();
     bool initializeVrApi();
     void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
-    void leaveVrApi();
+    void enterVrMode();
+    void leaveVrMode();
     void onDestroy();
     void showGlobalMenu();
 

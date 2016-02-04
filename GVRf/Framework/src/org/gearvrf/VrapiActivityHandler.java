@@ -73,7 +73,7 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
                 @Override
                 public void run() {
                     if (0 != mPtr) {
-                        nativeLeaveVrApi(mPtr);
+                        nativeLeaveVrMode(mPtr);
                     }
 
                     mActivity.runOnUiThread(new Runnable() {
@@ -114,6 +114,7 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
     private final EGLContextFactory mContextFactory = new EGLContextFactory() {
         @Override
         public void destroyContext(final EGL10 egl, final EGLDisplay display, final EGLContext context) {
+            Log.i(TAG, "EGLContextFactory.destroyContext()");
             egl.eglDestroyContext(display, context);
         }
 
@@ -138,6 +139,7 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
     private final EGLWindowSurfaceFactory mWindowSurfaceFactory = new EGLWindowSurfaceFactory() {
         @Override
         public void destroySurface(final EGL10 egl, final EGLDisplay display, final EGLSurface surface) {
+            Log.i(TAG, "EGLWindowSurfaceFactory.destroySurface()");
             egl.eglDestroySurface(display, surface);
         }
 
@@ -304,6 +306,7 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
         @Override
         public void onSurfaceChanged(final GL10 gl, final int ignored1, final int ignored2) {
             Log.i(TAG, "onSurfaceChanged");
+            nativeOnSurfaceChanged(mPtr);
         }
 
         @Override
@@ -318,9 +321,11 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
 
     private static native void nativeOnSurfaceCreated(long ptr);
 
+    private static native void nativeOnSurfaceChanged(long ptr);
+
     private static native void nativeOnDrawFrame(long ptr);
 
-    private static native void nativeLeaveVrApi(long ptr);
+    private static native void nativeLeaveVrMode(long ptr);
 
     private static native void nativeOnDestroy(long ptr);
 
