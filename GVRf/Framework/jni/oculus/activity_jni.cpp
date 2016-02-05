@@ -429,33 +429,37 @@ template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
     sensoredSceneUpdated_ = false;
 }
 
-#define NUM_MULTI_SAMPLES   4
 template<class R> void GVRActivityT<R>::onSurfaceCreated() {
     LOGV("GVRActivityT<R>::onSurfaceCreated()");
-
-    enterVrMode();
-
-    for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
-        bool b = FrameBuffer[eye].createFb(VRAPI_TEXTURE_FORMAT_8888,
-                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
-                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
-                NUM_MULTI_SAMPLES);
-    }
-
-    ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
-            vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X),
-            vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
-            0.0f);
-    TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&ProjectionMatrix);
 }
 
+#define NUM_MULTI_SAMPLES   4
 template<class R> void GVRActivityT<R>::onSurfaceChanged() {
     LOGV("GVRActivityT<R>::onSurfaceChanged()");
 
-    enterVrMode();
+    if (nullptr == oculusMobile_) {
+        enterVrMode();
+
+        for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+            bool b = FrameBuffer[eye].createFb(VRAPI_TEXTURE_FORMAT_8888,
+                    vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
+                    vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
+                    NUM_MULTI_SAMPLES);
+        }
+
+        ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
+                vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X),
+                vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
+                0.0f);
+        TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&ProjectionMatrix);
+    }
 }
 
 template<class R> void GVRActivityT<R>::onDrawFrame() {
+    if (nullptr == oculusMobile_) {
+        return;//use a notification for surfaceDestruction instead?
+    }
+
     ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJavaGlThread_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(),
             NULL);
     parms.FrameIndex = ++frameIndex;
@@ -513,6 +517,11 @@ template<class R> void GVRActivityT<R>::initializeOculusJava(JNIEnv& env, ovrJav
 
 template<class R> void GVRActivityT<R>::leaveVrMode() {
     LOGV("GVRActivityT<R>::leaveVrMode()");
+
+    for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+        FrameBuffer[eye].destroyFb();
+    }
+
     vrapi_LeaveVrMode(oculusMobile_);
     oculusMobile_ = nullptr;
 }

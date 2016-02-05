@@ -74,6 +74,8 @@ public class GVRActivity extends Activity {
     public interface ActivityHandlerRenderingCallbacks {
         public void onSurfaceCreated();
 
+        public void onSurfaceChanged(int width, int height);
+
         public void onBeforeDrawEyes();
 
         public void onDrawEye(int eye);
@@ -366,6 +368,11 @@ public class GVRActivity extends Activity {
         @Override
         public void onSurfaceCreated() {
             mViewManager.onSurfaceCreated();
+        }
+
+        @Override
+        public void onSurfaceChanged(int width, int height) {
+            mViewManager.onSurfaceChanged(width, height);
         }
 
         @Override

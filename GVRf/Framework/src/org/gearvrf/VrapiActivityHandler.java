@@ -47,6 +47,11 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
             return 0;
         }
 
+        createSurface();
+        return mPtr;
+    }
+
+    private void createSurface() {
         mSurfaceView = new GLSurfaceView(mActivity);
         mSurfaceView.setPreserveEGLContextOnPause(true);
         mSurfaceView.setEGLContextClientVersion(3);
@@ -59,8 +64,6 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
         mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
         mActivity.setContentView(mSurfaceView);
-
-        return mPtr;
     }
 
     @Override
@@ -269,6 +272,13 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
             Log.i(TAG, "onSurfaceCreated");
 
             mConfig = config;
+            nativeOnSurfaceCreated(mPtr);
+            mCallbacks.onSurfaceCreated();
+        }
+
+        @Override
+        public void onSurfaceChanged(final GL10 gl, final int width, final int height) {
+            Log.i(TAG, "onSurfaceChanged; %d x %d", width, height);
 
             final EGL10 egl = (EGL10) EGLContext.getEGL();
             final EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
@@ -287,7 +297,7 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
                 Log.e(TAG, "eglMakeCurrent() failed: 0x%X", egl.eglGetError());
                 return;
             }
-            nativeOnSurfaceCreated(mPtr);
+            nativeOnSurfaceChanged(mPtr);
 
             // necessary to explicitly make the pbuffer current for the rendering thread;
             // TimeWarp gets the window surface
@@ -298,15 +308,9 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
                         + Integer.toHexString(egl.eglGetError()));
             }
 
-            mCallbacks.onSurfaceCreated();
             startChoreographerThreadIfNotStarted();
             // mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);??
-        }
-
-        @Override
-        public void onSurfaceChanged(final GL10 gl, final int ignored1, final int ignored2) {
-            Log.i(TAG, "onSurfaceChanged");
-            nativeOnSurfaceChanged(mPtr);
+            mCallbacks.onSurfaceChanged(width, height);
         }
 
         @Override
