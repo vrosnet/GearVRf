@@ -72,9 +72,10 @@ private:
     jmethodID GetMethodId(const jclass clazz, const char* name, const char* signature );
     jmethodID GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
 
-    void getFramebufferDimensionsConfiguration(int& fbWidthOut, int& fbHeightOut,
+    void getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
             const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
             ovrTextureFormat& colorFormatOut);
+    void getModeConfiguration(bool& allowPowerSaveOut, bool& resetWindowFullscreenOut);
 
 public:
     void onSurfaceCreated();

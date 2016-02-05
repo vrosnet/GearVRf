@@ -200,10 +200,12 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
     return gc;
 }
 
-template <class R> void GVRActivityT<R>::getFramebufferDimensionsConfiguration(int& fbWidthOut, int& fbHeightOut,
+template <class R> void GVRActivityT<R>::getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
         const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut, ovrTextureFormat& textureFormatOut)
 {
     JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- framebuffer configuration ---");
 
     jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "framebufferPixelsWide", "I");
     fbWidthOut = env.GetIntField(vrAppSettings_, fid);
@@ -211,7 +213,7 @@ template <class R> void GVRActivityT<R>::getFramebufferDimensionsConfiguration(i
         env.SetIntField(vrAppSettings_, fid, fbWidthDefault);
         fbWidthOut = fbWidthDefault;
     }
-    LOGV("GVRActivity: using fb width %d", fbWidthOut);
+    LOGV("GVRActivity: --- width %d", fbWidthOut);
 
     fid = env.GetFieldID(vrAppSettingsClass_, "framebufferPixelsHigh", "I");
     fbHeightOut = env.GetIntField(vrAppSettings_, fid);
@@ -219,14 +221,14 @@ template <class R> void GVRActivityT<R>::getFramebufferDimensionsConfiguration(i
         env.SetIntField(vrAppSettings_, fid, fbHeightDefault);
         fbHeightOut = fbHeightDefault;
     }
-    LOGV("GVRActivity: using fb height: %d", fbHeightOut);
+    LOGV("GVRActivity: --- height: %d", fbHeightOut);
 
     fid = env.GetFieldID(vrAppSettingsClass_, "eyeBufferParms", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms;");
     jobject eyeParmsSettings = env.GetObjectField(vrAppSettings_, fid);
     jclass eyeParmsClass = env.GetObjectClass(eyeParmsSettings);
     fid = env.GetFieldID(eyeParmsClass, "multiSamples", "I");
     multiSamplesOut = env.GetIntField(eyeParmsSettings, fid);
-    LOGV("GVRActivity: using multisamples: %d", multiSamplesOut);
+    LOGV("GVRActivity: --- multisamples: %d", multiSamplesOut);
 
     fid = env.GetFieldID(eyeParmsClass, "colorFormat", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$ColorFormat;");
     jobject textureFormat = env.GetObjectField(eyeParmsSettings, fid);
@@ -255,20 +257,35 @@ template <class R> void GVRActivityT<R>::getFramebufferDimensionsConfiguration(i
         LOGE("fatal error: unknown texture format");
         std::terminate();
     }
-    LOGV("GVRActivity: using texture format: %d", textureFormatOut);
+    LOGV("GVRActivity: --- texture format: %d", textureFormatOut);
+    LOGV("GVRActivity: ---------------------------------");
 }
+
+template<class R> void GVRActivityT<R>::getModeConfiguration(bool& allowPowerSaveOut,
+        bool& resetWindowFullscreenOut) {
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- mode configuration ---");
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "modeParms", "Lorg/gearvrf/utility/VrAppSettings$ModeParms;");
+    jobject modeParms = env.GetObjectField(vrAppSettings_, fid);
+    jclass modeParmsClass = env.GetObjectClass(modeParms);
+
+    allowPowerSaveOut = env.GetBooleanField(modeParms, env.GetFieldID(modeParmsClass, "allowPowerSave", "Z"));
+    LOGV("GVRActivity: --- allowPowerSave: %d", allowPowerSaveOut);
+    resetWindowFullscreenOut = env.GetBooleanField(modeParms, env.GetFieldID(modeParmsClass, "resetWindowFullScreen","Z"));
+    LOGV("GVRActivity: --- resetWindowFullscreen: %d", resetWindowFullscreenOut);
+
+    LOGV("GVRActivity: --------------------------");
+}
+
+/**
+ * @todo showLoadingIcon is ignored; implemented by the appFw; do we care about it? not used by pure - maybe
+ * use it for the logo?
+ */
 
 //template <class R> void GVRActivityT<R>::Configure(OVR::ovrSettings & settings)
 //{
-//    //General settings.
-////    settings.ShowLoadingIcon = env->GetBooleanField(vrSettings,
-////            env->GetFieldID(vrAppSettingsClass, "showLoadingIcon", "Z"));
-////    settings.UseSrgbFramebuffer = env->GetBooleanField(vrSettings,
-////            env->GetFieldID(vrAppSettingsClass, "useSrgbFramebuffer", "Z"));
-////    settings.UseProtectedFramebuffer = env->GetBooleanField(vrSettings,
-////            env->GetFieldID(vrAppSettingsClass, "useProtectedFramebuffer",
-////                    "Z"));
-////
 ////    //Settings for EyeBufferParms.
 ////    settings.EyeBufferParms.resolveDepth = env->GetBooleanField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "resolveDepth", "Z"));
 ////
@@ -311,8 +328,6 @@ template <class R> void GVRActivityT<R>::getFramebufferDimensionsConfiguration(i
 ////    //Settings for ModeParms
 ////    jobject modeParms = env->GetObjectField(vrSettings, env->GetFieldID(vrAppSettingsClass, "modeParms", "Lorg/gearvrf/utility/VrAppSettings$ModeParms;"));
 ////    jclass modeParmsClass = env->GetObjectClass(modeParms);
-////    settings.ModeParms.AllowPowerSave = env->GetBooleanField(modeParms, env->GetFieldID(modeParmsClass, "allowPowerSave", "Z"));
-////    settings.ModeParms.ResetWindowFullscreen = env->GetBooleanField(modeParms, env->GetFieldID(modeParmsClass, "resetWindowFullScreen","Z"));
 ////    jobject performanceParms = env->GetObjectField(vrSettings, env->GetFieldID(vrAppSettingsClass, "performanceParms", "Lorg/gearvrf/utility/VrAppSettings$PerformanceParms;"));
 ////    jclass performanceParmsClass = env->GetObjectClass(performanceParms);
 ////    settings.PerformanceParms.GpuLevel = env->GetIntField(performanceParms, env->GetFieldID(performanceParmsClass, "gpuLevel", "I"));
@@ -454,7 +469,6 @@ template<class R> void GVRActivityT<R>::onSurfaceCreated() {
     LOGV("GVRActivity::onSurfaceCreated");
 }
 
-#define NUM_MULTI_SAMPLES   4
 template<class R> void GVRActivityT<R>::onSurfaceChanged() {
     LOGV("GVRActivityT::onSurfaceChanged");
 
@@ -463,7 +477,7 @@ template<class R> void GVRActivityT<R>::onSurfaceChanged() {
 
         int width, height, multisamples;
         ovrTextureFormat textureFormat;
-        getFramebufferDimensionsConfiguration(width, height,
+        getFramebufferConfiguration(width, height,
                 vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
                 vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
                 multisamples, textureFormat);
@@ -541,32 +555,36 @@ template<class R> void GVRActivityT<R>::initializeOculusJava(JNIEnv& env, ovrJav
 }
 
 template<class R> void GVRActivityT<R>::leaveVrMode() {
-    LOGV("GVRActivityT<R>::leaveVrMode()");
+    LOGV("GVRActivity::leaveVrMode");
 
-    for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
-        FrameBuffer[eye].destroy();
+    if (nullptr != oculusMobile_) {
+        for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+            FrameBuffer[eye].destroy();
+        }
+
+        vrapi_LeaveVrMode(oculusMobile_);
+        oculusMobile_ = nullptr;
+    } else {
+        LOGW("GVRActivity::leaveVrMode: ignored, have not entered vrMode");
     }
-
-    vrapi_LeaveVrMode(oculusMobile_);
-    oculusMobile_ = nullptr;
 }
 
 template<class R> void GVRActivityT<R>::enterVrMode() {
-    LOGV("GVRActivityT<R>::enterVrMode()");
+    LOGV("GVRActivity::enterVrMode");
 
     if (oculusMobile_) {
-        LOGV("GVRActivityT<R>::enterVrMode() already entered, exiting early");
+        LOGW("GVRActivity::enterVrMode: ignored, already entered vrMode");
         return;
     }
 
     ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
-    parms.ResetWindowFullscreen = true;
+    getModeConfiguration(parms.AllowPowerSave, parms.ResetWindowFullscreen);
 
     oculusMobile_ = vrapi_EnterVrMode(&parms);
 }
 
 template<class R> void GVRActivityT<R>::onDestroy() {
-    LOGV("GVRActivityT<R>::onDestroy()");
+    LOGV("GVRActivity::onDestroy");
 
     SystemActivities_Shutdown(&oculusJavaMainThread_);
     vrapi_Shutdown();

@@ -15,6 +15,8 @@
 
 package org.gearvrf;
 
+import java.util.Arrays;
+
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
@@ -26,12 +28,14 @@ import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
 
 import android.app.Activity;
+import android.opengl.EGL14;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.EGLConfigChooser;
 import android.opengl.GLSurfaceView.EGLContextFactory;
 import android.opengl.GLSurfaceView.EGLWindowSurfaceFactory;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.HandlerThread;
+import android.util.DisplayMetrics;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 
@@ -82,6 +86,22 @@ class VrapiActivityHandler implements ActivityHandler {
         mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
         mActivity.setContentView(mSurfaceView);
+
+        final DisplayMetrics metrics = new DisplayMetrics();
+        mActivity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
+        final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
+
+        final int framebufferHeight = mVrAppSettings.getFramebufferPixelsHigh();
+        final int framebufferWidth = mVrAppSettings.getFramebufferPixelsWide();
+        if (-1 != framebufferHeight && -1 != framebufferWidth && screenWidthPixels != framebufferWidth
+                && screenHeightPixels != framebufferHeight) {
+            Log.v(TAG, "--- window configuration ---");
+            Log.v(TAG, "--- width: %d", framebufferWidth);
+            Log.v(TAG, "--- height: %d", framebufferHeight);
+            mSurfaceView.getHolder().setFixedSize(framebufferWidth, framebufferHeight);
+            Log.v(TAG, "----------------------------");
+        }
     }
 
     @Override
@@ -305,11 +325,33 @@ class VrapiActivityHandler implements ActivityHandler {
             final EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
             final EGLContext context = egl.eglGetCurrentContext();
 
+            int numAttribs = 0;
+            final int[] configAttribs = new int[16];
+            Arrays.fill(configAttribs, EGL10.EGL_NONE);
+
+            Log.v(TAG, "--- window surface configuration ---");
+            if (mVrAppSettings.useSrgbFramebuffer) {
+                final int EGL_GL_COLORSPACE_KHR = 0x309D;
+                final int EGL_GL_COLORSPACE_SRGB_KHR = 0x3089;
+
+                configAttribs[numAttribs++] = EGL_GL_COLORSPACE_KHR;
+                configAttribs[numAttribs++] = EGL_GL_COLORSPACE_SRGB_KHR;
+            }
+            Log.v(TAG, "--- srgb framebuffer: %b", mVrAppSettings.useSrgbFramebuffer);
+
+            if (mVrAppSettings.useProtectedFramebuffer) {
+                final int EGL_PROTECTED_CONTENT_EXT = 0x32c0;
+
+                configAttribs[numAttribs++] = EGL_PROTECTED_CONTENT_EXT;
+                configAttribs[numAttribs++] = EGL14.EGL_TRUE;
+            }
+            Log.v(TAG, "--- protected framebuffer: %b", mVrAppSettings.useProtectedFramebuffer);
+
+            configAttribs[numAttribs++] = EGL10.EGL_NONE;
+            Log.v(TAG, "------------------------------------");
+
             // this is the display surface timewarp will hijack
-            mMainSurface = egl.eglCreateWindowSurface(display, mConfig, mSurfaceView.getHolder(),
-                    new int[] {
-                            EGL10.EGL_NONE
-            });
+            mMainSurface = egl.eglCreateWindowSurface(display, mConfig, mSurfaceView.getHolder(), configAttribs);
             if (mMainSurface == EGL10.EGL_NO_SURFACE) {
                 Log.e(TAG, "eglCreateWindowSurface() failed: 0x%X", egl.eglGetError());
                 return;
