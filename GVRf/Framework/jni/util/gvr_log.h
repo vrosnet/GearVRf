@@ -33,6 +33,10 @@
 #define  LOGW(...)  __android_log_print(ANDROID_LOG_WARN,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
+//#define STOP_ON_ERROR
+#define GL( func )      func; GLCheckErrors(#func);
+//#define GL( func )      func;
+
 static bool DEBUG_RENDERER = false; //printf() or glGetError() per frame is expensive
 
 static const char * GlErrorString( GLenum error )
@@ -58,11 +62,27 @@ static void GLCheckErrors(const char* name)
             break;
         }
         LOGE( "gvrf: %s error: %s", name, GlErrorString( error ) );
-        //std::terminate();
+#ifdef STOP_ON_ERROR
+        std::terminate();
+#endif
     }
 }
 
-#define GL( func )      func; GLCheckErrors(#func);
-//#define GL( func )      func;
+static const char* frameBufferStatusString(GLenum status) {
+    switch (status) {
+    case GL_FRAMEBUFFER_UNDEFINED:
+        return "GL_FRAMEBUFFER_UNDEFINED";
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+        return "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+        return "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+    case GL_FRAMEBUFFER_UNSUPPORTED:
+        return "GL_FRAMEBUFFER_UNSUPPORTED";
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+        return "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE";
+    default:
+        return "unknown";
+    }
+}
 
 #endif

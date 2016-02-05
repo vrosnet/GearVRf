@@ -106,12 +106,15 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
     }
 
     @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.isLongPress() && event.getKeyCode() == KeyEvent.KEYCODE_BACK && 0 != mPtr) {
-            nativeShowGlobalMenu(mPtr);
-            return true;
-        }
-        return false;
+    public boolean onBack() {
+        nativeShowConfirmQuit(mPtr);
+        return true;
+    }
+
+    @Override
+    public boolean onBackLongPress() {
+        nativeShowGlobalMenu(mPtr);
+        return true;
     }
 
     private final EGLContextFactory mContextFactory = new EGLContextFactory() {
@@ -334,4 +337,6 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
     private static native void nativeOnDestroy(long ptr);
 
     private static native void nativeShowGlobalMenu(long appPtr);
+
+    private static native void nativeShowConfirmQuit(long appPtr);
 }

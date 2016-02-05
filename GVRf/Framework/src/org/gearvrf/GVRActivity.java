@@ -92,7 +92,9 @@ public class GVRActivity extends Activity {
 
         public void onDestroy();
 
-        public boolean dispatchKeyEvent(KeyEvent event);
+        public boolean onBack();
+
+        public boolean onBackLongPress();
     }
 
     static native void nativeSetCamera(long appPtr, long camera);
@@ -287,14 +289,36 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (mActivityHandler.dispatchKeyEvent(event)) {
-            return true;
-        }
         boolean handled = mViewManager.dispatchKeyEvent(event);
         if (handled == false) {
             handled = super.dispatchKeyEvent(event);
         }
         return handled;
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (KeyEvent.KEYCODE_BACK == keyCode) {
+            event.startTracking();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (KeyEvent.KEYCODE_BACK == keyCode) {
+            return mActivityHandler.onBack();
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (KeyEvent.KEYCODE_BACK == keyCode) {
+            return mActivityHandler.onBackLongPress();
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 
     @Override

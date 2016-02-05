@@ -21,8 +21,6 @@
 #include "sensor/ksensor/k_sensor.h"
 #include "../objects/components/camera.h"
 #include "../objects/components/camera_rig.h"
-#include "fbwrapper.h"
-
 #include "glm/glm.hpp"
 
 #include "VrApi.h"
@@ -30,6 +28,7 @@
 #include "VrApi_Helpers.h"
 
 #include <android/native_window_jni.h>
+#include "framebufferobject.h"
 
 namespace gvr {
 
@@ -82,7 +81,9 @@ public:
     void enterVrMode();
     void leaveVrMode();
     void onDestroy();
+
     void showGlobalMenu();
+    void showConfirmQuit();
 
     jobject activity_ = nullptr;
     jobject activityRenderingCallbacks_ = nullptr;
@@ -91,7 +92,7 @@ public:
     ovrJava oculusJavaGlThread_;
     ovrMobile* oculusMobile_ = nullptr;
     long long frameIndex = 1;
-    FbWrapper FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
+    FrameBufferObject FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
     ovrMatrix4f ProjectionMatrix;
     ovrMatrix4f TexCoordsTanAnglesMatrix;
 };

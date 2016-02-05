@@ -92,6 +92,11 @@ JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeShowGlobalMen
     activity->showGlobalMenu();
 }
 
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeShowConfirmQuit(JNIEnv * jni, jclass clazz, jlong appPtr) {
+    GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
+    activity->showConfirmQuit();
+}
+
 JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeSetCamera(JNIEnv * jni, jclass clazz, jlong appPtr,
         jlong jcamera) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
@@ -416,8 +421,13 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
 //}
 
 template <class R> void GVRActivityT<R>::showGlobalMenu() {
-    LOGV("GVRActivityT<R>::showGlobalMenu()");
-    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_GLOBAL_MENU, NULL );
+    LOGV("GVRActivity::showGlobalMenu");
+    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_GLOBAL_MENU, NULL);
+}
+
+template <class R> void GVRActivityT<R>::showConfirmQuit() {
+    LOGV("GVRActivity::showConfirmQuit");
+    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_CONFIRM_QUIT, NULL);
 }
 
 template<class R> bool GVRActivityT<R>::updateSensoredScene() {
@@ -430,18 +440,18 @@ template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
 }
 
 template<class R> void GVRActivityT<R>::onSurfaceCreated() {
-    LOGV("GVRActivityT<R>::onSurfaceCreated()");
+    LOGV("GVRActivity::onSurfaceCreated");
 }
 
 #define NUM_MULTI_SAMPLES   4
 template<class R> void GVRActivityT<R>::onSurfaceChanged() {
-    LOGV("GVRActivityT<R>::onSurfaceChanged()");
+    LOGV("GVRActivityT::onSurfaceChanged");
 
     if (nullptr == oculusMobile_) {
         enterVrMode();
 
         for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
-            bool b = FrameBuffer[eye].createFb(VRAPI_TEXTURE_FORMAT_8888,
+            bool b = FrameBuffer[eye].create(VRAPI_TEXTURE_FORMAT_8888,
                     vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
                     vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
                     NUM_MULTI_SAMPLES);
@@ -479,9 +489,9 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
         updatedTracking.HeadPose.Pose.Position = tracking.HeadPose.Pose.Position;
         //ovrTracking updatedTracking = *tracking;
 
-        FrameBuffer[eye].setCurrentFb();
-        GL(glViewport(0, 0, FrameBuffer[eye].Width, FrameBuffer[eye].Height));
-        GL(glScissor(0, 0, FrameBuffer[eye].Width, FrameBuffer[eye].Height));
+        FrameBuffer[eye].setCurrent();
+        GL(glViewport(0, 0, FrameBuffer[eye].mWidth, FrameBuffer[eye].mHeight));
+        GL(glScissor(0, 0, FrameBuffer[eye].mWidth, FrameBuffer[eye].mHeight));
 
         //todo
         if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
@@ -490,21 +500,21 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
         headRotationProvider_.predict(*this, parms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
         oculusJavaGlThread_.Env->CallVoidMethod(activityRenderingCallbacks_, onDrawEyeMethodId, eye);
 
-        FrameBuffer[eye].resolveFb();
+        FrameBuffer[eye].resolve();
 
         parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].ColorTextureSwapChain =
-                FrameBuffer[eye].ColorTextureSwapChain;
+                FrameBuffer[eye].mColorTextureSwapChain;
         parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].TextureSwapChainIndex =
-                FrameBuffer[eye].TextureSwapChainIndex;
+                FrameBuffer[eye].mTextureSwapChainIndex;
         for (int layer = 0; layer < VRAPI_FRAME_LAYER_TYPE_MAX; layer++) {
             parms.Layers[layer].Textures[eye].TexCoordsFromTanAngles = TexCoordsTanAnglesMatrix;
             parms.Layers[layer].Textures[eye].HeadPose = updatedTracking.HeadPose;
         }
 
-        FrameBuffer[eye].advanceFb();
+        FrameBuffer[eye].advance();
     }
 
-    FbWrapper::setNoneFb();
+    FrameBufferObject::setNone();
 
     vrapi_SubmitFrame(oculusMobile_, &parms);
 }
@@ -519,7 +529,7 @@ template<class R> void GVRActivityT<R>::leaveVrMode() {
     LOGV("GVRActivityT<R>::leaveVrMode()");
 
     for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
-        FrameBuffer[eye].destroyFb();
+        FrameBuffer[eye].destroy();
     }
 
     vrapi_LeaveVrMode(oculusMobile_);
