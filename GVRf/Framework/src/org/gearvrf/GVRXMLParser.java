@@ -176,6 +176,10 @@ class GVRXMLParser {
                                         .equals("COLOR_8888_sRGB")) {
                                     settings.eyeBufferParms
                                             .setColorFormat(ColorFormat.COLOR_8888_sRGB);
+                                } else if (attributeValue
+                                        .equals("COLOR_RGBA16F")) {
+                                    settings.eyeBufferParms
+                                            .setColorFormat(ColorFormat.COLOR_RGBA16F);
                                 }
                             } else if (attributeName.equals("multiSamples")) {
                                 settings.eyeBufferParms.setMultiSamples(Integer

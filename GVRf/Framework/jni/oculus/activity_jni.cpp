@@ -32,16 +32,15 @@
 #include "GLES3/gl3ext.h"
 
 static const char* activityClassName = "org/gearvrf/GVRActivity";
-static const char* activityHandlerRenderingCallbacksClassName =
-        "org/gearvrf/GVRActivity$ActivityHandlerRenderingCallbacks";
+static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/ActivityHandlerRenderingCallbacks";
 static const char* app_settings_name = "org/gearvrf/utility/VrAppSettings";
 
 namespace gvr {
 
 extern "C" {
 JNIEXPORT long JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnCreate(JNIEnv * jni, jclass clazz,
-        jobject activity, jobject callbacks) {
-    GVRActivity* gvrActivity = new GVRActivity(*jni, activity, callbacks);
+        jobject activity, jobject vrAppSettings, jobject callbacks) {
+    GVRActivity* gvrActivity = new GVRActivity(*jni, activity, vrAppSettings, callbacks);
     if (gvrActivity->initializeVrApi()) {
         return reinterpret_cast<long>(gvrActivity);
     } else {
@@ -126,10 +125,11 @@ JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivity_nativeOnUndock(JNIEnv * jni,
 //                             GVRActivity
 //=============================================================================
 
-template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks) :
-        jniMainThread_(&jni) {
-
+template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject vrAppSettings,
+        jobject callbacks) : jniMainThread_(&jni)
+{
     activity_ = jni.NewGlobalRef(activity);
+    vrAppSettings_ = jni.NewGlobalRef(vrAppSettings);
     activityRenderingCallbacks_ = jni.NewGlobalRef(callbacks);
 
     activityClass_ = GetGlobalClassReference(activityClassName);
@@ -138,15 +138,16 @@ template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, j
 
     onDrawEyeMethodId = GetMethodId(activityRenderingCallbacksClass_, "onDrawEye", "(I)V");
     updateSensoredSceneMethodId = GetMethodId(activityClass_, "updateSensoredScene", "()Z");
-    //getAppSettingsMethodId = GetMethodID("getAppSettings", "()Lorg/gearvrf/utility/VrAppSettings;");
 }
 
 template<class R> GVRActivityT<R>::~GVRActivityT() {
-   jniMainThread_->DeleteGlobalRef(activity_);
-   jniMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);
-   jniMainThread_->DeleteGlobalRef(activityClass_);
-   jniMainThread_->DeleteGlobalRef(activityRenderingCallbacksClass_);
    jniMainThread_->DeleteGlobalRef(vrAppSettingsClass_);
+   jniMainThread_->DeleteGlobalRef(activityRenderingCallbacksClass_);
+   jniMainThread_->DeleteGlobalRef(activityClass_);
+
+   jniMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);
+   jniMainThread_->DeleteGlobalRef(vrAppSettings_);
+   jniMainThread_->DeleteGlobalRef(activity_);
 }
 
 template<class R> bool GVRActivityT<R>::initializeVrApi() {
@@ -199,30 +200,67 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
     return gc;
 }
 
+template <class R> void GVRActivityT<R>::getFramebufferDimensionsConfiguration(int& fbWidthOut, int& fbHeightOut,
+        const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut, ovrTextureFormat& textureFormatOut)
+{
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "framebufferPixelsWide", "I");
+    fbWidthOut = env.GetIntField(vrAppSettings_, fid);
+    if (-1 == fbWidthOut) {
+        env.SetIntField(vrAppSettings_, fid, fbWidthDefault);
+        fbWidthOut = fbWidthDefault;
+    }
+    LOGV("GVRActivity: using fb width %d", fbWidthOut);
+
+    fid = env.GetFieldID(vrAppSettingsClass_, "framebufferPixelsHigh", "I");
+    fbHeightOut = env.GetIntField(vrAppSettings_, fid);
+    if (-1 == fbHeightOut) {
+        env.SetIntField(vrAppSettings_, fid, fbHeightDefault);
+        fbHeightOut = fbHeightDefault;
+    }
+    LOGV("GVRActivity: using fb height: %d", fbHeightOut);
+
+    fid = env.GetFieldID(vrAppSettingsClass_, "eyeBufferParms", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms;");
+    jobject eyeParmsSettings = env.GetObjectField(vrAppSettings_, fid);
+    jclass eyeParmsClass = env.GetObjectClass(eyeParmsSettings);
+    fid = env.GetFieldID(eyeParmsClass, "multiSamples", "I");
+    multiSamplesOut = env.GetIntField(eyeParmsSettings, fid);
+    LOGV("GVRActivity: using multisamples: %d", multiSamplesOut);
+
+    fid = env.GetFieldID(eyeParmsClass, "colorFormat", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$ColorFormat;");
+    jobject textureFormat = env.GetObjectField(eyeParmsSettings, fid);
+    jmethodID mid = env.GetMethodID(env.GetObjectClass(textureFormat),"getValue","()I");
+    int textureFormatValue = env.CallIntMethod(textureFormat, mid);
+    switch (textureFormatValue){
+    case 0:
+        textureFormatOut = VRAPI_TEXTURE_FORMAT_565;
+        break;
+    case 1:
+        textureFormatOut = VRAPI_TEXTURE_FORMAT_5551;
+        break;
+    case 2:
+        textureFormatOut = VRAPI_TEXTURE_FORMAT_4444;
+        break;
+    case 3:
+        textureFormatOut = VRAPI_TEXTURE_FORMAT_8888;
+        break;
+    case 4:
+        textureFormatOut = VRAPI_TEXTURE_FORMAT_8888_sRGB;
+        break;
+    case 5:
+        textureFormatOut = VRAPI_TEXTURE_FORMAT_RGBA16F;
+        break;
+    default:
+        LOGE("fatal error: unknown texture format");
+        std::terminate();
+    }
+    LOGV("GVRActivity: using texture format: %d", textureFormatOut);
+}
+
 //template <class R> void GVRActivityT<R>::Configure(OVR::ovrSettings & settings)
 //{
 //    //General settings.
-////    JNIEnv *env = app->GetJava()->Env;
-////    jobject vrSettings = env->CallObjectMethod(app->GetJava()->ActivityObject,
-////            getAppSettingsMethodId);
-////    jint framebufferPixelsWide = env->GetIntField(vrSettings,
-////            env->GetFieldID(vrAppSettingsClass, "framebufferPixelsWide", "I"));
-////    if (framebufferPixelsWide == -1) {
-////        app->GetJava()->Env->SetIntField(vrSettings,
-////                env->GetFieldID(vrAppSettingsClass, "framebufferPixelsWide",
-////                        "I"), settings.FramebufferPixelsWide);
-////    } else {
-////        settings.FramebufferPixelsWide = framebufferPixelsWide;
-////    }
-////    jint framebufferPixelsHigh = env->GetIntField(vrSettings,
-////            env->GetFieldID(vrAppSettingsClass, "framebufferPixelsHigh", "I"));
-////    if (framebufferPixelsHigh == -1) {
-////        env->SetIntField(vrSettings,
-////                env->GetFieldID(vrAppSettingsClass, "framebufferPixelsHigh",
-////                        "I"), settings.FramebufferPixelsHigh);
-////    } else {
-////        settings.FramebufferPixelsHigh = framebufferPixelsHigh;
-////    }
 ////    settings.ShowLoadingIcon = env->GetBooleanField(vrSettings,
 ////            env->GetFieldID(vrAppSettingsClass, "showLoadingIcon", "Z"));
 ////    settings.UseSrgbFramebuffer = env->GetBooleanField(vrSettings,
@@ -232,11 +270,6 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
 ////                    "Z"));
 ////
 ////    //Settings for EyeBufferParms.
-////    jobject eyeParmsSettings = env->GetObjectField(vrSettings,
-////            env->GetFieldID(vrAppSettingsClass, "eyeBufferParms",
-////                    "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms;"));
-////    jclass eyeParmsClass = env->GetObjectClass(eyeParmsSettings);
-////    settings.EyeBufferParms.multisamples = env->GetIntField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "multiSamples", "I"));
 ////    settings.EyeBufferParms.resolveDepth = env->GetBooleanField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "resolveDepth", "Z"));
 ////
 ////    jint resolutionWidth = env->GetIntField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "resolutionWidth", "I"));
@@ -269,28 +302,6 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
 ////        break;
 ////    case 3:
 ////        settings.EyeBufferParms.depthFormat = OVR::DEPTH_24_STENCIL_8;
-////        break;
-////    default:
-////        break;
-////    }
-////    jobject colorFormat = env->GetObjectField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "colorFormat", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$ColorFormat;"));
-////    getValueID = env->GetMethodID(env->GetObjectClass(colorFormat),"getValue","()I");
-////    int colorFormatValue = (int)env->CallIntMethod(colorFormat, getValueID);
-////    switch(colorFormatValue){
-////    case 0:
-////        settings.EyeBufferParms.colorFormat = OVR::COLOR_565;
-////        break;
-////    case 1:
-////        settings.EyeBufferParms.colorFormat = OVR::COLOR_5551;
-////        break;
-////    case 2:
-////        settings.EyeBufferParms.colorFormat = OVR::COLOR_4444;
-////        break;
-////    case 3:
-////        settings.EyeBufferParms.colorFormat = OVR::COLOR_8888;
-////        break;
-////    case 4:
-////        settings.EyeBufferParms.colorFormat = OVR::COLOR_8888_sRGB;
 ////        break;
 ////    default:
 ////        break;
@@ -450,11 +461,15 @@ template<class R> void GVRActivityT<R>::onSurfaceChanged() {
     if (nullptr == oculusMobile_) {
         enterVrMode();
 
+        int width, height, multisamples;
+        ovrTextureFormat textureFormat;
+        getFramebufferDimensionsConfiguration(width, height,
+                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
+                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
+                multisamples, textureFormat);
+
         for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
-            bool b = FrameBuffer[eye].create(VRAPI_TEXTURE_FORMAT_8888,
-                    vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
-                    vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
-                    NUM_MULTI_SAMPLES);
+            bool b = FrameBuffer[eye].create(textureFormat, width, height, multisamples);
         }
 
         ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(

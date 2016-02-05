@@ -41,7 +41,7 @@ class KSensorHeadRotation;
 template <class R> class GVRActivityT
 {
 public:
-    GVRActivityT(JNIEnv& jni, jobject activity, jobject callbacks);
+    GVRActivityT(JNIEnv& jni, jobject activity, jobject vrAppSettings, jobject callbacks);
     virtual ~GVRActivityT();
 
 //    virtual void        Configure( OVR::ovrSettings & settings );
@@ -72,6 +72,10 @@ private:
     jmethodID GetMethodId(const jclass clazz, const char* name, const char* signature );
     jmethodID GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
 
+    void getFramebufferDimensionsConfiguration(int& fbWidthOut, int& fbHeightOut,
+            const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
+            ovrTextureFormat& colorFormatOut);
+
 public:
     void onSurfaceCreated();
     void onSurfaceChanged();
@@ -85,8 +89,9 @@ public:
     void showGlobalMenu();
     void showConfirmQuit();
 
-    jobject activity_ = nullptr;
-    jobject activityRenderingCallbacks_ = nullptr;
+    jobject activity_;
+    jobject vrAppSettings_;
+    jobject activityRenderingCallbacks_;
 
     ovrJava oculusJavaMainThread_;
     ovrJava oculusJavaGlThread_;

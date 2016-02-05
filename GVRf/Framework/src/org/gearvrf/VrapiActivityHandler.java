@@ -1,3 +1,17 @@
+/* Copyright 2015 Samsung Electronics Co., LTD
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.gearvrf;
 
@@ -8,9 +22,10 @@ import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
 import javax.microedition.khronos.opengles.GL10;
 
-import org.gearvrf.GVRActivity.ActivityHandlerRenderingCallbacks;
 import org.gearvrf.utility.Log;
+import org.gearvrf.utility.VrAppSettings;
 
+import android.app.Activity;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.EGLConfigChooser;
 import android.opengl.GLSurfaceView.EGLContextFactory;
@@ -18,40 +33,43 @@ import android.opengl.GLSurfaceView.EGLWindowSurfaceFactory;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.HandlerThread;
 import android.view.Choreographer;
-import android.view.KeyEvent;
 import android.view.Choreographer.FrameCallback;
 
-public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
+/**
+ * Keep Oculus-specifics here
+ */
+class VrapiActivityHandler implements ActivityHandler {
 
     private static final String TAG = "VrapiActivityHandler";
 
-    private final GVRActivity mActivity;
+    private final Activity mActivity;
     private long mPtr;
     private GLSurfaceView mSurfaceView;
     private final ActivityHandlerRenderingCallbacks mCallbacks;
-    private EGLSurface mPbufferSurface;
+    private EGLSurface mPixelBuffer;
     private EGLSurface mMainSurface;
+    private final VrAppSettings mVrAppSettings;
 
-    public VrapiActivityHandler(final GVRActivity activity, final ActivityHandlerRenderingCallbacks callbacks) {
+    VrapiActivityHandler(final Activity activity, final VrAppSettings vrAppSettings, final ActivityHandlerRenderingCallbacks callbacks) {
         if (null == callbacks || null == activity) {
             throw new IllegalArgumentException();
         }
         mActivity = activity;
         mCallbacks = callbacks;
+        mVrAppSettings = vrAppSettings;
     }
 
     @Override
     public long onCreate() {
-        mPtr = nativeOnCreate(mActivity, mCallbacks);
-        if (0 == mPtr) {
-            return 0;
+        mPtr = nativeOnCreate(mActivity, mVrAppSettings, mCallbacks);
+        if (0 != mPtr) {
+            createSurfaceView();
         }
 
-        createSurface();
         return mPtr;
     }
 
-    private void createSurface() {
+    private void createSurfaceView() {
         mSurfaceView = new GLSurfaceView(mActivity);
         mSurfaceView.setPreserveEGLContextOnPause(true);
         mSurfaceView.setEGLContextClientVersion(3);
@@ -157,12 +175,12 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
                     EGL10.EGL_HEIGHT, 16,
                     EGL10.EGL_NONE
             };
-            mPbufferSurface = egl.eglCreatePbufferSurface(display, config, surfaceAttribs);
-            if (EGL10.EGL_NO_SURFACE == mPbufferSurface) {
+            mPixelBuffer = egl.eglCreatePbufferSurface(display, config, surfaceAttribs);
+            if (EGL10.EGL_NO_SURFACE == mPixelBuffer) {
                 throw new RuntimeException("Pixel buffer surface not created; error 0x"
                         + Integer.toHexString(egl.eglGetError()));
             }
-            return mPbufferSurface;
+            return mPixelBuffer;
         }
     };
 
@@ -304,8 +322,8 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
 
             // necessary to explicitly make the pbuffer current for the rendering thread;
             // TimeWarp gets the window surface
-            if (!egl.eglMakeCurrent(display, mPbufferSurface, mPbufferSurface, context)) {
-                egl.eglDestroySurface(display, mPbufferSurface);
+            if (!egl.eglMakeCurrent(display, mPixelBuffer, mPixelBuffer, context)) {
+                egl.eglDestroySurface(display, mPixelBuffer);
                 egl.eglDestroyContext(display, context);
                 throw new RuntimeException("Failed to make context current ; error 0x"
                         + Integer.toHexString(egl.eglGetError()));
@@ -324,7 +342,8 @@ public class VrapiActivityHandler implements GVRActivity.ActivityHandler {
         }
     };
 
-    private static native long nativeOnCreate(GVRActivity act, ActivityHandlerRenderingCallbacks callbacks);
+    private static native long nativeOnCreate(Activity act, VrAppSettings vrAppSettings,
+            ActivityHandlerRenderingCallbacks callbacks);
 
     private static native void nativeOnSurfaceCreated(long ptr);
 

@@ -21,10 +21,7 @@ import org.gearvrf.utility.DockEventReceiver;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
 
-import com.oculus.vrappframework.VrActivity;
-
 import android.app.Activity;
-import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Build;
 import android.os.Bundle;
@@ -71,32 +68,6 @@ public class GVRActivity extends Activity {
         System.loadLibrary("gvrf");
     }
 
-    public interface ActivityHandlerRenderingCallbacks {
-        public void onSurfaceCreated();
-
-        public void onSurfaceChanged(int width, int height);
-
-        public void onBeforeDrawEyes();
-
-        public void onDrawEye(int eye);
-
-        public void onAfterDrawEyes();
-    }
-
-    public interface ActivityHandler {
-        public long onCreate();
-
-        public void onPause();
-
-        public void onResume();
-
-        public void onDestroy();
-
-        public boolean onBack();
-
-        public boolean onBackLongPress();
-    }
-
     static native void nativeSetCamera(long appPtr, long camera);
 
     static native void nativeSetCameraRig(long appPtr, long cameraRig);
@@ -123,6 +94,7 @@ public class GVRActivity extends Activity {
         mDockEventReceiver = new DockEventReceiver(this, mRunOnDock, mRunOnUndock);
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
 
+        mActivityHandler = new VrapiActivityHandler(this, mAppSettings, mRenderingCallbacks);
         mPtr = mActivityHandler.onCreate();
         if (0 == mPtr) {
             Log.e(TAG, "Unable to create native peer!");
@@ -419,5 +391,5 @@ public class GVRActivity extends Activity {
             }
         }
     };
-    private ActivityHandler mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
+    private ActivityHandler mActivityHandler;
 }
