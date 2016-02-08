@@ -178,6 +178,7 @@ public class GVRActivity extends Activity {
                 mViewManager = new GVRMonoscopicViewManager(this, gvrScript,
                         xmlParser);
             }
+            mActivityHandler.onSetScript();
         } else {
             throw new IllegalArgumentException(
                     "You can not set orientation to portrait for GVRF apps.");

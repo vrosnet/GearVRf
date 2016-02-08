@@ -66,10 +66,6 @@ class VrapiActivityHandler implements ActivityHandler {
     @Override
     public long onCreate() {
         mPtr = nativeOnCreate(mActivity, mVrAppSettings, mCallbacks);
-        if (0 != mPtr) {
-            createSurfaceView();
-        }
-
         return mPtr;
     }
 
@@ -86,22 +82,6 @@ class VrapiActivityHandler implements ActivityHandler {
         mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
         mActivity.setContentView(mSurfaceView);
-
-        final DisplayMetrics metrics = new DisplayMetrics();
-        mActivity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
-        final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
-        final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
-
-        final int framebufferHeight = mVrAppSettings.getFramebufferPixelsHigh();
-        final int framebufferWidth = mVrAppSettings.getFramebufferPixelsWide();
-        if (-1 != framebufferHeight && -1 != framebufferWidth && screenWidthPixels != framebufferWidth
-                && screenHeightPixels != framebufferHeight) {
-            Log.v(TAG, "--- window configuration ---");
-            Log.v(TAG, "--- width: %d", framebufferWidth);
-            Log.v(TAG, "--- height: %d", framebufferHeight);
-            mSurfaceView.getHolder().setFixedSize(framebufferWidth, framebufferHeight);
-            Log.v(TAG, "----------------------------");
-        }
     }
 
     @Override
@@ -153,6 +133,27 @@ class VrapiActivityHandler implements ActivityHandler {
     public boolean onBackLongPress() {
         nativeShowGlobalMenu(mPtr);
         return true;
+    }
+
+    @Override
+    public void onSetScript() {
+        createSurfaceView();
+
+        final DisplayMetrics metrics = new DisplayMetrics();
+        mActivity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
+        final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
+
+        final int framebufferHeight = mVrAppSettings.getFramebufferPixelsHigh();
+        final int framebufferWidth = mVrAppSettings.getFramebufferPixelsWide();
+        if (-1 != framebufferHeight && -1 != framebufferWidth && screenWidthPixels != framebufferWidth
+                && screenHeightPixels != framebufferHeight) {
+            Log.v(TAG, "--- window configuration ---");
+            Log.v(TAG, "--- width: %d", framebufferWidth);
+            Log.v(TAG, "--- height: %d", framebufferHeight);
+            mSurfaceView.getHolder().setFixedSize(framebufferWidth, framebufferHeight);
+            Log.v(TAG, "----------------------------");
+        }
     }
 
     private final EGLContextFactory mContextFactory = new EGLContextFactory() {

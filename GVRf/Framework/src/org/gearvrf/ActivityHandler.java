@@ -13,6 +13,8 @@ interface ActivityHandler {
 
     public void onDestroy();
 
+    public void onSetScript();
+
     public boolean onBack();
 
     public boolean onBackLongPress();
