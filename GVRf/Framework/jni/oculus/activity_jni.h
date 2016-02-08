@@ -76,6 +76,7 @@ private:
             const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
             ovrTextureFormat& colorFormatOut);
     void getModeConfiguration(bool& allowPowerSaveOut, bool& resetWindowFullscreenOut);
+    void getPerformanceConfiguration(ovrPerformanceParms& parmsOut);
 
 public:
     void onSurfaceCreated();
@@ -101,6 +102,7 @@ public:
     FrameBufferObject FrameBuffer[VRAPI_FRAME_LAYER_EYE_MAX];
     ovrMatrix4f ProjectionMatrix;
     ovrMatrix4f TexCoordsTanAnglesMatrix;
+    ovrPerformanceParms oculusPerformanceParms_;
 };
 
 

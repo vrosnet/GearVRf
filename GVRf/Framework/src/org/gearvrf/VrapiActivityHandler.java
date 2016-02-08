@@ -28,6 +28,7 @@ import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
 
 import android.app.Activity;
+import android.graphics.PixelFormat;
 import android.opengl.EGL14;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.EGLConfigChooser;
@@ -38,6 +39,7 @@ import android.os.HandlerThread;
 import android.util.DisplayMetrics;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
+import android.view.SurfaceHolder;
 
 /**
  * Keep Oculus-specifics here
@@ -144,6 +146,9 @@ class VrapiActivityHandler implements ActivityHandler {
         final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
         final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
 
+        final SurfaceHolder holder = mSurfaceView.getHolder();
+        holder.setFormat(PixelFormat.TRANSLUCENT);
+
         final int framebufferHeight = mVrAppSettings.getFramebufferPixelsHigh();
         final int framebufferWidth = mVrAppSettings.getFramebufferPixelsWide();
         if (-1 != framebufferHeight && -1 != framebufferWidth && screenWidthPixels != framebufferWidth
@@ -151,7 +156,7 @@ class VrapiActivityHandler implements ActivityHandler {
             Log.v(TAG, "--- window configuration ---");
             Log.v(TAG, "--- width: %d", framebufferWidth);
             Log.v(TAG, "--- height: %d", framebufferHeight);
-            mSurfaceView.getHolder().setFixedSize(framebufferWidth, framebufferHeight);
+            holder.setFixedSize(framebufferWidth, framebufferHeight);
             Log.v(TAG, "----------------------------");
         }
     }
