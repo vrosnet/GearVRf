@@ -297,6 +297,59 @@ template<class R> void GVRActivityT<R>::getPerformanceConfiguration(ovrPerforman
     LOGV("GVRActivity: --------------------------");
 }
 
+template<class R> void GVRActivityT<R>::getHeadModelConfiguration(ovrHeadModelParms& parmsInOut) {
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- head model configuration ---");
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "headModelParms", "Lorg/gearvrf/utility/VrAppSettings$HeadModelParms;");
+    jobject parms = env.GetObjectField(vrAppSettings_, fid);
+    jclass parmsClass = env.GetObjectClass(parms);
+
+    fid = env.GetFieldID(parmsClass, "interpupillaryDistance", "F");
+    float interpupillaryDistance = env.GetFloatField(parms, fid);
+    if (interpupillaryDistance != interpupillaryDistance) {
+        //Value not set in Java side, current Value is NaN
+        //Need to copy the system settings to java side.
+        env.SetFloatField(parms, fid, parmsInOut.InterpupillaryDistance);
+    } else {
+        parmsInOut.InterpupillaryDistance = interpupillaryDistance;
+    }
+    LOGV("GVRActivity: --- interpupillaryDistance: %f", parmsInOut.InterpupillaryDistance);
+
+    fid = env.GetFieldID(parmsClass, "eyeHeight", "F");
+    float eyeHeight = env.GetFloatField(parms, fid);
+    if (eyeHeight != eyeHeight) {
+        //same as interpupilaryDistance
+        env.SetFloatField(parms, fid, parmsInOut.EyeHeight);
+    }else{
+        parmsInOut.EyeHeight = eyeHeight;
+    }
+    LOGV("GVRActivity: --- eyeHeight: %f", parmsInOut.EyeHeight);
+
+    fid = env.GetFieldID(parmsClass, "headModelDepth", "F");
+    float headModelDepth = env.GetFloatField(parms, fid);
+    if (headModelDepth != headModelDepth) {
+        //same as interpupilaryDistance
+        env.SetFloatField(parms, fid, oculusHeadModelParms_.HeadModelDepth);
+    } else {
+        oculusHeadModelParms_.HeadModelDepth = headModelDepth;
+    }
+    LOGV("GVRActivity: --- headModelDepth: %f", oculusHeadModelParms_.HeadModelDepth);
+
+    fid = env.GetFieldID(parmsClass, "headModelHeight", "F");
+    float headModelHeight = env.GetFloatField(parms, fid);
+    if (headModelHeight != headModelHeight) {
+        //same as interpupilaryDistance
+        env.SetFloatField(parms, fid, oculusHeadModelParms_.HeadModelHeight);
+    } else {
+        oculusHeadModelParms_.HeadModelHeight = headModelHeight;
+    }
+    LOGV("GVRActivity: --- headModelHeight: %f", oculusHeadModelParms_.HeadModelHeight);
+
+    LOGV("GVRActivity: --------------------------------");
+}
+
 /**
  * @todo showLoadingIcon is ignored; implemented by the appFw; do we care about it? not used by pure - maybe
  * use it for the logo?
@@ -329,38 +382,6 @@ template<class R> void GVRActivityT<R>::getPerformanceConfiguration(ovrPerforman
 ////        break;
 ////    }
 ////
-////    // Settings for HeadModelParms
-////    jobject headModelParms = env->GetObjectField(vrSettings, env->GetFieldID(vrAppSettingsClass, "headModelParms", "Lorg/gearvrf/utility/VrAppSettings$HeadModelParms;" ));
-////    jclass headModelParmsClass = env->GetObjectClass(headModelParms);
-////    float interpupillaryDistance = (float)env->GetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "interpupillaryDistance", "F"));
-////    if(interpupillaryDistance != interpupillaryDistance){
-////        //Value not set in Java side, current Value is NaN
-////        //Need to copy the system settings to java side.
-////        env->SetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "interpupillaryDistance", "F"), settings.HeadModelParms.InterpupillaryDistance);
-////    }else{
-////        settings.HeadModelParms.InterpupillaryDistance = interpupillaryDistance;
-////    }
-////    float eyeHeight = (float)env->GetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "eyeHeight", "F"));
-////    if(eyeHeight != eyeHeight){
-////        //same as interpupilaryDistance
-////        env->SetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "eyeHeight", "F"), settings.HeadModelParms.EyeHeight);
-////    }else{
-////        settings.HeadModelParms.EyeHeight = eyeHeight;
-////    }
-////    float headModelDepth = (float)env->GetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "headModelDepth", "F"));
-////    if(headModelDepth != headModelDepth){
-////            //same as interpupilaryDistance
-////        env->SetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "headModelDepth", "F"), settings.HeadModelParms.HeadModelDepth);
-////    }else{
-////        settings.HeadModelParms.HeadModelDepth = headModelDepth;
-////    }
-////    float headModelHeight = (float)env->GetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "headModelHeight", "F"));
-////    if(headModelHeight != headModelHeight){
-////            //same as interpupilaryDistance
-////        env->SetFloatField(headModelParms, env->GetFieldID(headModelParmsClass, "headModelHeight", "F"), settings.HeadModelParms.HeadModelHeight);
-////    }else{
-////        settings.HeadModelParms.HeadModelHeight = headModelHeight;
-////    }
 ////    if (env->GetStaticBooleanField(vrAppSettingsClass,
 ////            env->GetStaticFieldID(vrAppSettingsClass, "isShowDebugLog", "Z"))) {
 ////        std::stringstream logInfo;
@@ -579,6 +600,9 @@ template<class R> void GVRActivityT<R>::enterVrMode() {
 
     oculusPerformanceParms_ = vrapi_DefaultPerformanceParms();
     getPerformanceConfiguration(oculusPerformanceParms_);
+
+    oculusHeadModelParms_ = vrapi_DefaultHeadModelParms();
+    getHeadModelConfiguration(oculusHeadModelParms_);
 }
 
 template<class R> void GVRActivityT<R>::onDestroy() {

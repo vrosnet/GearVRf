@@ -77,6 +77,7 @@ private:
             ovrTextureFormat& colorFormatOut);
     void getModeConfiguration(bool& allowPowerSaveOut, bool& resetWindowFullscreenOut);
     void getPerformanceConfiguration(ovrPerformanceParms& parmsOut);
+    void getHeadModelConfiguration(ovrHeadModelParms& parmsOut);
 
 public:
     void onSurfaceCreated();
@@ -103,6 +104,7 @@ public:
     ovrMatrix4f ProjectionMatrix;
     ovrMatrix4f TexCoordsTanAnglesMatrix;
     ovrPerformanceParms oculusPerformanceParms_;
+    ovrHeadModelParms oculusHeadModelParms_;
 };
 
 
@@ -152,8 +154,7 @@ public:
         if (docked_) {
             ovrMobile* ovr = gvrActivity.oculusMobile_;
             ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
-            ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
-            tracking = vrapi_ApplyHeadModel(&headModelParms, &tracking);
+            tracking = vrapi_ApplyHeadModel(&gvrActivity.oculusHeadModelParms_, &tracking);
 
             const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
             glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);
