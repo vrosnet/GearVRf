@@ -20,27 +20,35 @@
 #include <GLES3/gl3.h>
 #include "VrApi_Types.h"
 
+namespace gvr {
+
 class FrameBufferObject {
 public:
 
     void clear();
     bool create(const ovrTextureFormat colorFormat, const int width, const int height,
-            const int multisamples);
+            const int multisamples, bool resolveDepth, const ovrTextureFormat depthFormat);
     void destroy();
-    void setCurrent();
-    static void setNone();
+    void bind();
+    static void unbind();
     void resolve();
     void advance();
 
 public:
-    int mWidth;
-    int mHeight;
-    int mMultisamples;
-    int mTextureSwapChainLength;
+    int mWidth = 0;
+    int mHeight = 0;
+    int mMultisamples = 0;
+    int mTextureSwapChainLength = 0;
+    int mDepthTextureSwapChainLength = 0;
     int mTextureSwapChainIndex = 0;
-    ovrTextureSwapChain * mColorTextureSwapChain;
-    GLuint * mDepthBuffers;
-    GLuint * mFrameBuffers;
+    ovrTextureSwapChain* mColorTextureSwapChain = nullptr;
+    ovrTextureSwapChain* mDepthTextureSwapChain = nullptr;
+    GLuint* mDepthBuffers = nullptr;
+    GLuint mColorBuffer = 0;
+    GLuint* mRenderFrameBuffers = nullptr;
+    GLuint* mResolveFrameBuffers = nullptr;
 };
+
+} //namespace gvr
 
 #endif /* _FRAMEBUFFEROBJECT_H_ */

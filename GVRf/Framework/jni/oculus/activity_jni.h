@@ -74,7 +74,7 @@ private:
 
     void getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
             const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
-            ovrTextureFormat& colorFormatOut);
+            ovrTextureFormat& colorFormatOut, bool& resolveDepth, ovrTextureFormat& depthTextureFormatOut);
     void getModeConfiguration(bool& allowPowerSaveOut, bool& resetWindowFullscreenOut);
     void getPerformanceConfiguration(ovrPerformanceParms& parmsOut);
     void getHeadModelConfiguration(ovrHeadModelParms& parmsOut);

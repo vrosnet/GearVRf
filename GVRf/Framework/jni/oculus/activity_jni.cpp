@@ -201,7 +201,8 @@ template<class PredictionTrait> jclass GVRActivityT<PredictionTrait>::GetGlobalC
 }
 
 template <class R> void GVRActivityT<R>::getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
-        const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut, ovrTextureFormat& textureFormatOut)
+        const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
+        ovrTextureFormat& colorTextureFormatOut, bool& resolveDepthOut, ovrTextureFormat& depthTextureFormatOut)
 {
     JNIEnv& env = *oculusJavaGlThread_.Env;
 
@@ -237,28 +238,61 @@ template <class R> void GVRActivityT<R>::getFramebufferConfiguration(int& fbWidt
     int textureFormatValue = env.CallIntMethod(textureFormat, mid);
     switch (textureFormatValue){
     case 0:
-        textureFormatOut = VRAPI_TEXTURE_FORMAT_565;
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_565;
         break;
     case 1:
-        textureFormatOut = VRAPI_TEXTURE_FORMAT_5551;
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_5551;
         break;
     case 2:
-        textureFormatOut = VRAPI_TEXTURE_FORMAT_4444;
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_4444;
         break;
     case 3:
-        textureFormatOut = VRAPI_TEXTURE_FORMAT_8888;
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_8888;
         break;
     case 4:
-        textureFormatOut = VRAPI_TEXTURE_FORMAT_8888_sRGB;
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_8888_sRGB;
         break;
     case 5:
-        textureFormatOut = VRAPI_TEXTURE_FORMAT_RGBA16F;
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_RGBA16F;
         break;
     default:
-        LOGE("fatal error: unknown texture format");
+        LOGE("fatal error: unknown color texture format");
         std::terminate();
     }
-    LOGV("GVRActivity: --- texture format: %d", textureFormatOut);
+    LOGV("GVRActivity: --- color texture format: %d", colorTextureFormatOut);
+
+    fid = env.GetFieldID(parmsClass, "resolveDepth", "Z");
+    resolveDepthOut = env.GetBooleanField(parms, fid);
+    LOGV("GVRActivity: --- resolve depth: %d", resolveDepthOut);
+
+    if (resolveDepthOut) {
+        fid = env.GetFieldID(parmsClass, "depthFormat",
+                "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$DepthFormat;");
+        jobject depthFormat = env.GetObjectField(parms, fid);
+        mid = env.GetMethodID(env.GetObjectClass(depthFormat), "getValue", "()I");
+        int depthFormatValue = env.CallIntMethod(depthFormat, mid);
+        switch (depthFormatValue) {
+        case 0:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_NONE;
+            break;
+        case 1:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_16;
+            break;
+        case 2:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_24;
+            break;
+        case 3:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_24_STENCIL_8;
+            break;
+        default:
+            LOGE("fatal error: unknown depth texture format");
+            std::terminate();
+        }
+    } else {
+        depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_NONE;
+    }
+    LOGV("GVRActivity: --- depth texture format: %d", depthTextureFormatOut);
+
     LOGV("GVRActivity: ---------------------------------");
 }
 
@@ -350,37 +384,9 @@ template<class R> void GVRActivityT<R>::getHeadModelConfiguration(ovrHeadModelPa
     LOGV("GVRActivity: --------------------------------");
 }
 
-/**
- * @todo showLoadingIcon is ignored; implemented by the appFw; do we care about it? not used by pure - maybe
- * use it for the logo?
- */
-
 //template <class R> void GVRActivityT<R>::Configure(OVR::ovrSettings & settings)
 //{
 ////    //Settings for EyeBufferParms.
-////    settings.EyeBufferParms.resolveDepth = env->GetBooleanField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "resolveDepth", "Z"));
-////
-////
-////    jobject depthFormat = env->GetObjectField(eyeParmsSettings, env->GetFieldID(eyeParmsClass, "depthFormat", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$DepthFormat;"));
-////    jmethodID getValueID;
-////    getValueID = env->GetMethodID(env->GetObjectClass(depthFormat),"getValue","()I");
-////    int depthFormatValue = (int)env->CallIntMethod(depthFormat, getValueID);
-////    switch(depthFormatValue){
-////    case 0:
-////        settings.EyeBufferParms.depthFormat = OVR::DEPTH_0;
-////        break;
-////    case 1:
-////        settings.EyeBufferParms.depthFormat = OVR::DEPTH_16;
-////        break;
-////    case 2:
-////        settings.EyeBufferParms.depthFormat = OVR::DEPTH_24;
-////        break;
-////    case 3:
-////        settings.EyeBufferParms.depthFormat = OVR::DEPTH_24_STENCIL_8;
-////        break;
-////    default:
-////        break;
-////    }
 ////
 ////    if (env->GetStaticBooleanField(vrAppSettingsClass,
 ////            env->GetStaticFieldID(vrAppSettingsClass, "isShowDebugLog", "Z"))) {
@@ -493,14 +499,17 @@ template<class R> void GVRActivityT<R>::onSurfaceChanged() {
         enterVrMode();
 
         int width, height, multisamples;
-        ovrTextureFormat textureFormat;
+        ovrTextureFormat colorTextureFormat;
+        ovrTextureFormat depthTextureFormat;
+        bool resolveDepth;
         getFramebufferConfiguration(width, height,
                 vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
                 vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
-                multisamples, textureFormat);
+                multisamples, colorTextureFormat, resolveDepth, depthTextureFormat);
 
         for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
-            bool b = FrameBuffer[eye].create(textureFormat, width, height, multisamples);
+            bool b = FrameBuffer[eye].create(colorTextureFormat, width, height, multisamples, resolveDepth,
+                    depthTextureFormat);
         }
 
         ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
@@ -535,7 +544,7 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
         updatedTracking.HeadPose.Pose.Position = tracking.HeadPose.Pose.Position;
         //ovrTracking updatedTracking = *tracking;
 
-        FrameBuffer[eye].setCurrent();
+        FrameBuffer[eye].bind();
         GL(glViewport(0, 0, FrameBuffer[eye].mWidth, FrameBuffer[eye].mHeight));
         GL(glScissor(0, 0, FrameBuffer[eye].mWidth, FrameBuffer[eye].mHeight));
 
@@ -560,7 +569,7 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
         FrameBuffer[eye].advance();
     }
 
-    FrameBufferObject::setNone();
+    FrameBufferObject::unbind();
 
     vrapi_SubmitFrame(oculusMobile_, &parms);
 }

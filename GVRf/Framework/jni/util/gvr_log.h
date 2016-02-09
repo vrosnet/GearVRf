@@ -34,8 +34,11 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 //#define STOP_ON_ERROR
-#define GL( func )      func; GLCheckErrors(#func);
+#define GL( func )      func; checkGLError(#func);
 //#define GL( func )      func;
+
+//#define clearGLError(msg)
+#define clearGLError(msg) checkGLError(msg);
 
 static bool DEBUG_RENDERER = false; //printf() or glGetError() per frame is expensive
 
@@ -52,20 +55,28 @@ static const char * GlErrorString( GLenum error )
         default: return "unknown";
     }
 }
-static void GLCheckErrors(const char* name)
+
+static void checkGLError(const char* name)
 {
-    for ( int i = 0; i < 10; i++ )
-    {
+#ifdef STOP_ON_ERROR
+    bool error = false;
+#endif
+    for (int i = 0; i < 10; ++i) {
         const GLenum error = glGetError();
-        if ( error == GL_NO_ERROR )
-        {
+        if (GL_NO_ERROR == error) {
             break;
         }
-        LOGE( "gvrf: %s error: %s", name, GlErrorString( error ) );
+        LOGE("%s error: %s", name, GlErrorString(error));
 #ifdef STOP_ON_ERROR
-        std::terminate();
+        error = true;
 #endif
     }
+
+#ifdef STOP_ON_ERROR
+    if (error) {
+        std::terminate();
+    }
+#endif
 }
 
 static const char* frameBufferStatusString(GLenum status) {
@@ -84,5 +95,8 @@ static const char* frameBufferStatusString(GLenum status) {
         return "unknown";
     }
 }
+
+//#define FAIL(...)
+#define FAIL(msg, ...) do { LOGE(msg, ##__VA_ARGS__); std::terminate(); } while(0)
 
 #endif
