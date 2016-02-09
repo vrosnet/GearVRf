@@ -248,7 +248,6 @@ void FrameBufferObject::destroy() {
         vrapi_DestroyTextureSwapChain(mDepthTextureSwapChain);
     }
 
-    GL(glDeleteRenderbuffers(mTextureSwapChainLength, mDepthBuffers));
     vrapi_DestroyTextureSwapChain(mColorTextureSwapChain);
 
     clear();
