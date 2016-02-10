@@ -19,27 +19,19 @@
 
 #include "view_manager.h"
 #include "framebufferobject.h"
-#include "sensor/ksensor/k_sensor.h"
 #include "../objects/components/camera.h"
 #include "../objects/components/camera_rig.h"
 #include "configuration_helper.h"
-#include "VrApi.h"
+#include "head_rotation_provider.h"
 #include "VrApi_Types.h"
-#include "VrApi_Helpers.h"
 
 namespace gvr {
 
-//#define USE_FEATURE_KSENSOR
-
-class OculusHeadRotation;
-class KSensorHeadRotation;
-
-
-template <class R> class GVRActivityT
+class GVRActivity
 {
 public:
-    GVRActivityT(JNIEnv& jni, jobject activity, jobject vrAppSettings, jobject callbacks);
-    ~GVRActivityT();
+    GVRActivity(JNIEnv& jni, jobject activity, jobject vrAppSettings, jobject callbacks);
+    ~GVRActivity();
 
     bool updateSensoredScene();
     void setCameraRig(jlong cameraRig);
@@ -49,7 +41,7 @@ public:
     Camera* camera = nullptr;
     CameraRig* cameraRig_ = nullptr;   // this needs a global ref on the java object; todo
     bool sensoredSceneUpdated_ = false;
-    R headRotationProvider_;
+    HeadRotationProvider headRotationProvider_;
 
 private:
     JNIEnv* envMainThread_ = nullptr;           // for use by the Java UI thread
@@ -57,10 +49,6 @@ private:
     jclass activityClass_ = nullptr;            // must be looked up from main thread or FindClass() will fail
     jclass activityRenderingCallbacksClass_ = nullptr;
 
-    jclass vrAppSettingsClass_ = nullptr;
-    jclass eyeBufferParmsClass = nullptr;
-
-    jmethodID getAppSettingsMethodId = nullptr;
     jmethodID onDrawEyeMethodId = nullptr;
     jmethodID updateSensoredSceneMethodId = nullptr;
 
@@ -94,77 +82,6 @@ public:
     ovrMobile* getOculusContext() { return oculusMobile_; }
     ovrHeadModelParms* getOculusHeadModelParms() { return &oculusHeadModelParms_; }
 };
-
-
-#ifdef USE_FEATURE_KSENSOR
-typedef GVRActivityT<KSensorHeadRotation> GVRActivity;
-#else
-typedef GVRActivityT<OculusHeadRotation> GVRActivity;
-#endif
-
-#ifdef USE_FEATURE_KSENSOR
-class KSensorHeadRotation {
-public:
-//    void predict(GVRActivityT<KSensorHeadRotation>& gvrActivity, const ovrFrameParms&, const float time) {
-//        if (nullptr != gvrActivity.cameraRig_) {
-//            if (nullptr == sensor_.get()) {
-//                gvrActivity.cameraRig_->predict(time);
-//            } else {
-//                sensor_->convertTo(rotationSensorData_);
-//                gvrActivity.cameraRig_->predict(time, rotationSensorData_);
-//            }
-//        } else {
-//            gvrActivity.cameraRig_->setRotation(glm::quat());
-//        }
-//    }
-    bool receivingUpdates() {
-        return rotationSensorData_.hasBeenUpdated();
-    }
-    void onDock() {
-        sensor_.reset(new KSensor());
-        sensor_->start();
-    }
-    void onUndock() {
-        if (nullptr != sensor_.get()) {
-            sensor_->stop();
-            sensor_.reset(nullptr);
-        }
-    }
-
-public:
-    std::unique_ptr<KSensor> sensor_;
-    RotationSensorData rotationSensorData_;
-};
-#else
-class OculusHeadRotation {
-    bool docked_ = false;
-public:
-    void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
-        if (docked_) {
-            ovrMobile* ovr = gvrActivity.getOculusContext();
-            ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
-            tracking = vrapi_ApplyHeadModel(gvrActivity.getOculusHeadModelParms(), &tracking);
-
-            const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
-            glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);
-            gvrActivity.cameraRig_->setRotation(glm::conjugate(glm::inverse(quat)));
-        } else if (nullptr != gvrActivity.cameraRig_) {
-            gvrActivity.cameraRig_->predict(time);
-        } else {
-            gvrActivity.cameraRig_->setRotation(glm::quat());
-        }
-    }
-    bool receivingUpdates() {
-        return docked_;
-    }
-    void onDock() {
-        docked_ = true;
-    }
-    void onUndock() {
-        docked_ = false;
-    }
-};
-#endif
 
 }
 #endif

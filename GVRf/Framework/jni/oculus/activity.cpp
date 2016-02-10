@@ -14,16 +14,13 @@
  */
 
 #include "activity.h"
-#include "objects/scene_object.h"
 #include "jni_utils.h"
-#include <sstream>
+
 #include <jni.h>
-#include <glm/gtc/type_ptr.hpp>
+#include "VrApi.h"
+#include "VrApi_Types.h"
+#include "VrApi_Helpers.h"
 #include "SystemActivities.h"
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include "GLES3/gl3.h"
-#include "GLES3/gl3ext.h"
 
 static const char* activityClassName = "org/gearvrf/GVRActivity";
 static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/ActivityHandlerRenderingCallbacks";
@@ -34,7 +31,7 @@ namespace gvr {
 //                             GVRActivity
 //=============================================================================
 
-template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& env, jobject activity, jobject vrAppSettings,
+GVRActivity::GVRActivity(JNIEnv& env, jobject activity, jobject vrAppSettings,
         jobject callbacks) : envMainThread_(&env), configurationHelper_(env, vrAppSettings)
 {
     activity_ = env.NewGlobalRef(activity);
@@ -47,7 +44,7 @@ template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& env, jobject activity, j
     updateSensoredSceneMethodId = GetMethodId(env, activityClass_, "updateSensoredScene", "()Z");
 }
 
-template<class R> GVRActivityT<R>::~GVRActivityT() {
+GVRActivity::~GVRActivity() {
     LOGV("GVRActivity::~GVRActivity");
 
     SystemActivities_Shutdown(&oculusJavaMainThread_);
@@ -60,7 +57,7 @@ template<class R> GVRActivityT<R>::~GVRActivityT() {
     envMainThread_->DeleteGlobalRef(activity_);
 }
 
-template<class R> bool GVRActivityT<R>::initializeVrApi() {
+bool GVRActivity::initializeVrApi() {
     initializeOculusJava(*envMainThread_, oculusJavaMainThread_);
     SystemActivities_Init(&oculusJavaMainThread_);
 
@@ -77,31 +74,31 @@ template<class R> bool GVRActivityT<R>::initializeVrApi() {
     return true;
 }
 
-template <class R> void GVRActivityT<R>::showGlobalMenu() {
+void GVRActivity::showGlobalMenu() {
     LOGV("GVRActivity::showGlobalMenu");
     SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_GLOBAL_MENU, NULL);
 }
 
-template <class R> void GVRActivityT<R>::showConfirmQuit() {
+void GVRActivity::showConfirmQuit() {
     LOGV("GVRActivity::showConfirmQuit");
     SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_CONFIRM_QUIT, NULL);
 }
 
-template<class R> bool GVRActivityT<R>::updateSensoredScene() {
+bool GVRActivity::updateSensoredScene() {
     return oculusJavaGlThread_.Env->CallBooleanMethod(oculusJavaGlThread_.ActivityObject, updateSensoredSceneMethodId);
 }
 
-template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
+void GVRActivity::setCameraRig(jlong cameraRig) {
     cameraRig_ = reinterpret_cast<CameraRig*>(cameraRig);
     sensoredSceneUpdated_ = false;
 }
 
-template<class R> void GVRActivityT<R>::onSurfaceCreated(JNIEnv& env) {
+void GVRActivity::onSurfaceCreated(JNIEnv& env) {
     LOGV("GVRActivity::onSurfaceCreated");
     initializeOculusJava(env, oculusJavaGlThread_);
 }
 
-template<class R> void GVRActivityT<R>::onSurfaceChanged(JNIEnv& env) {
+void GVRActivity::onSurfaceChanged(JNIEnv& env) {
     LOGV("GVRActivityT::onSurfaceChanged");
     initializeOculusJava(env, oculusJavaGlThread_);
 
@@ -139,7 +136,7 @@ template<class R> void GVRActivityT<R>::onSurfaceChanged(JNIEnv& env) {
     }
 }
 
-template<class R> void GVRActivityT<R>::onDrawFrame() {
+void GVRActivity::onDrawFrame() {
     if (nullptr == oculusMobile_) {
         return;//use a notification for surfaceDestruction instead?
     }
@@ -193,13 +190,13 @@ template<class R> void GVRActivityT<R>::onDrawFrame() {
     vrapi_SubmitFrame(oculusMobile_, &parms);
 }
 
-template<class R> void GVRActivityT<R>::initializeOculusJava(JNIEnv& env, ovrJava& oculusJava) {
+void GVRActivity::initializeOculusJava(JNIEnv& env, ovrJava& oculusJava) {
     oculusJava.Env = &env;
     env.GetJavaVM(&oculusJava.Vm);
     oculusJava.ActivityObject = activity_;
 }
 
-template<class R> void GVRActivityT<R>::leaveVrMode() {
+void GVRActivity::leaveVrMode() {
     LOGV("GVRActivity::leaveVrMode");
 
     if (nullptr != oculusMobile_) {
@@ -213,13 +210,5 @@ template<class R> void GVRActivityT<R>::leaveVrMode() {
         LOGW("GVRActivity::leaveVrMode: ignored, have not entered vrMode");
     }
 }
-
-//explicit instantiation necessary so other units can see the methods
-//implemented here
-#ifdef USE_FEATURE_KSENSOR
-template class GVRActivityT<KSensorHeadRotation>;
-#else
-template class GVRActivityT<OculusHeadRotation>;
-#endif
 
 }
