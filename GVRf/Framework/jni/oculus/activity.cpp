@@ -14,7 +14,7 @@
  */
 
 #include "activity.h"
-#include "jni_utils.h"
+#include "../util/jni_utils.h"
 
 #include <jni.h>
 #include "VrApi.h"
