@@ -42,9 +42,8 @@ template <class R> class GVRActivityT
 {
 public:
     GVRActivityT(JNIEnv& jni, jobject activity, jobject vrAppSettings, jobject callbacks);
-    virtual ~GVRActivityT();
+    ~GVRActivityT();
 
-//    virtual void        Configure( OVR::ovrSettings & settings );
     bool updateSensoredScene();
     void setCameraRig(jlong cameraRig);
 
@@ -68,10 +67,6 @@ private:
     jmethodID onDrawEyeMethodId = nullptr;
     jmethodID updateSensoredSceneMethodId = nullptr;
 
-    jclass GetGlobalClassReference( const char * className ) const;
-    jmethodID GetMethodId(const jclass clazz, const char* name, const char* signature );
-    jmethodID GetStaticMethodID( jclass activityClass, const char * name, const char * signature );
-
     void getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
             const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
             ovrTextureFormat& colorFormatOut, bool& resolveDepth, ovrTextureFormat& depthTextureFormatOut);
@@ -87,7 +82,6 @@ public:
     void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
     void enterVrMode();
     void leaveVrMode();
-    void onDestroy();
 
     void showGlobalMenu();
     void showConfirmQuit();
@@ -114,6 +108,7 @@ typedef GVRActivityT<KSensorHeadRotation> GVRActivity;
 typedef GVRActivityT<OculusHeadRotation> GVRActivity;
 #endif
 
+#ifdef USE_FEATURE_KSENSOR
 class KSensorHeadRotation {
 public:
 //    void predict(GVRActivityT<KSensorHeadRotation>& gvrActivity, const ovrFrameParms&, const float time) {
@@ -146,7 +141,7 @@ public:
     std::unique_ptr<KSensor> sensor_;
     RotationSensorData rotationSensorData_;
 };
-
+#else
 class OculusHeadRotation {
     bool docked_ = false;
 public:
@@ -175,6 +170,7 @@ public:
         docked_ = false;
     }
 };
+#endif
 
 }
 #endif

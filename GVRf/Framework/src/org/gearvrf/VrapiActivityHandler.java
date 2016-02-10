@@ -27,7 +27,6 @@ import javax.microedition.khronos.opengles.GL10;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
 
-import android.app.Activity;
 import android.graphics.PixelFormat;
 import android.opengl.EGL14;
 import android.opengl.GLSurfaceView;
@@ -48,27 +47,20 @@ class VrapiActivityHandler implements ActivityHandler {
 
     private static final String TAG = "VrapiActivityHandler";
 
-    private final Activity mActivity;
+    private final GVRActivity mActivity;
     private long mPtr;
     private GLSurfaceView mSurfaceView;
     private final ActivityHandlerRenderingCallbacks mCallbacks;
     private EGLSurface mPixelBuffer;
     private EGLSurface mMainSurface;
-    private final VrAppSettings mVrAppSettings;
 
-    VrapiActivityHandler(final Activity activity, final VrAppSettings vrAppSettings, final ActivityHandlerRenderingCallbacks callbacks) {
+    VrapiActivityHandler(final GVRActivity activity, final ActivityHandlerRenderingCallbacks callbacks) {
         if (null == callbacks || null == activity) {
             throw new IllegalArgumentException();
         }
         mActivity = activity;
         mCallbacks = callbacks;
-        mVrAppSettings = vrAppSettings;
-    }
-
-    @Override
-    public long onCreate() {
-        mPtr = nativeOnCreate(mActivity, mVrAppSettings, mCallbacks);
-        return mPtr;
+        mPtr = activity.getNative();
     }
 
     private void createSurfaceView() {
@@ -149,8 +141,9 @@ class VrapiActivityHandler implements ActivityHandler {
         final SurfaceHolder holder = mSurfaceView.getHolder();
         holder.setFormat(PixelFormat.TRANSLUCENT);
 
-        final int framebufferHeight = mVrAppSettings.getFramebufferPixelsHigh();
-        final int framebufferWidth = mVrAppSettings.getFramebufferPixelsWide();
+        final VrAppSettings appSettings = mActivity.getAppSettings();
+        final int framebufferHeight = appSettings.getFramebufferPixelsHigh();
+        final int framebufferWidth = appSettings.getFramebufferPixelsWide();
         if (-1 != framebufferHeight && -1 != framebufferWidth && screenWidthPixels != framebufferWidth
                 && screenHeightPixels != framebufferHeight) {
             Log.v(TAG, "--- window configuration ---");
@@ -336,22 +329,23 @@ class VrapiActivityHandler implements ActivityHandler {
             Arrays.fill(configAttribs, EGL10.EGL_NONE);
 
             Log.v(TAG, "--- window surface configuration ---");
-            if (mVrAppSettings.useSrgbFramebuffer) {
+            final VrAppSettings appSettings = mActivity.getAppSettings();
+            if (appSettings.useSrgbFramebuffer) {
                 final int EGL_GL_COLORSPACE_KHR = 0x309D;
                 final int EGL_GL_COLORSPACE_SRGB_KHR = 0x3089;
 
                 configAttribs[numAttribs++] = EGL_GL_COLORSPACE_KHR;
                 configAttribs[numAttribs++] = EGL_GL_COLORSPACE_SRGB_KHR;
             }
-            Log.v(TAG, "--- srgb framebuffer: %b", mVrAppSettings.useSrgbFramebuffer);
+            Log.v(TAG, "--- srgb framebuffer: %b", appSettings.useSrgbFramebuffer);
 
-            if (mVrAppSettings.useProtectedFramebuffer) {
+            if (appSettings.useProtectedFramebuffer) {
                 final int EGL_PROTECTED_CONTENT_EXT = 0x32c0;
 
                 configAttribs[numAttribs++] = EGL_PROTECTED_CONTENT_EXT;
                 configAttribs[numAttribs++] = EGL14.EGL_TRUE;
             }
-            Log.v(TAG, "--- protected framebuffer: %b", mVrAppSettings.useProtectedFramebuffer);
+            Log.v(TAG, "--- protected framebuffer: %b", appSettings.useProtectedFramebuffer);
 
             configAttribs[numAttribs++] = EGL10.EGL_NONE;
             Log.v(TAG, "------------------------------------");
@@ -389,9 +383,6 @@ class VrapiActivityHandler implements ActivityHandler {
             mCallbacks.onAfterDrawEyes();
         }
     };
-
-    private static native long nativeOnCreate(Activity act, VrAppSettings vrAppSettings,
-            ActivityHandlerRenderingCallbacks callbacks);
 
     private static native void nativeOnSurfaceCreated(long ptr);
 

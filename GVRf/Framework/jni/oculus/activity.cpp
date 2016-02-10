@@ -1,0 +1,423 @@
+/* Copyright 2015 Samsung Electronics Co., LTD
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "activity.h"
+#include "objects/scene_object.h"
+#include "jni_utils.h"
+#include <sstream>
+#include <jni.h>
+#include <glm/gtc/type_ptr.hpp>
+#include "SystemActivities.h"
+#include "VrApi_Helpers.h"
+#include "VrApi_Types.h"
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include "GLES3/gl3.h"
+#include "GLES3/gl3ext.h"
+
+static const char* activityClassName = "org/gearvrf/GVRActivity";
+static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/ActivityHandlerRenderingCallbacks";
+static const char* app_settings_name = "org/gearvrf/utility/VrAppSettings";
+
+namespace gvr {
+
+//=============================================================================
+//                             GVRActivity
+//=============================================================================
+
+template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject vrAppSettings,
+        jobject callbacks) : jniMainThread_(&jni)
+{
+    activity_ = jni.NewGlobalRef(activity);
+    vrAppSettings_ = jni.NewGlobalRef(vrAppSettings);
+    activityRenderingCallbacks_ = jni.NewGlobalRef(callbacks);
+
+    activityClass_ = GetGlobalClassReference(jni, activityClassName);
+    activityRenderingCallbacksClass_ = GetGlobalClassReference(jni, activityHandlerRenderingCallbacksClassName);
+    vrAppSettingsClass_ = GetGlobalClassReference(jni, app_settings_name);
+
+    onDrawEyeMethodId = GetMethodId(jni, activityRenderingCallbacksClass_, "onDrawEye", "(I)V");
+    updateSensoredSceneMethodId = GetMethodId(jni, activityClass_, "updateSensoredScene", "()Z");
+}
+
+template<class R> GVRActivityT<R>::~GVRActivityT() {
+    LOGV("GVRActivity::~GVRActivity");
+
+    SystemActivities_Shutdown(&oculusJavaMainThread_);
+    vrapi_Shutdown();
+
+    jniMainThread_->DeleteGlobalRef(vrAppSettingsClass_);
+    jniMainThread_->DeleteGlobalRef(activityRenderingCallbacksClass_);
+    jniMainThread_->DeleteGlobalRef(activityClass_);
+
+    jniMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);
+    jniMainThread_->DeleteGlobalRef(vrAppSettings_);
+    jniMainThread_->DeleteGlobalRef(activity_);
+}
+
+template<class R> bool GVRActivityT<R>::initializeVrApi() {
+    initializeOculusJava(*jniMainThread_, oculusJavaMainThread_);
+    SystemActivities_Init(&oculusJavaMainThread_);
+
+    const ovrInitParms initParms = vrapi_DefaultInitParms(&oculusJavaMainThread_);
+    int32_t initResult = vrapi_Initialize(&initParms);
+    if (VRAPI_INITIALIZE_SUCCESS != initResult) {
+        char const * msg =
+                initResult == VRAPI_INITIALIZE_PERMISSIONS_ERROR ?
+                        "Thread priority security exception. Make sure the APK is signed." :
+                        "VrApi initialization error.";
+        SystemActivities_DisplayError(&oculusJavaMainThread_, SYSTEM_ACTIVITIES_FATAL_ERROR_OSIG, __FILE__, msg);
+        return false;
+    }
+    return true;
+}
+
+template <class R> void GVRActivityT<R>::getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
+        const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
+        ovrTextureFormat& colorTextureFormatOut, bool& resolveDepthOut, ovrTextureFormat& depthTextureFormatOut)
+{
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- framebuffer configuration ---");
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "eyeBufferParms", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms;");
+    const jobject parms = env.GetObjectField(vrAppSettings_, fid);
+    const jclass parmsClass = env.GetObjectClass(parms);
+
+    fid = env.GetFieldID(parmsClass, "resolutionWidth", "I");
+    fbWidthOut = env.GetIntField(parms, fid);
+    if (-1 == fbWidthOut) {
+        env.SetIntField(parms, fid, fbWidthDefault);
+        fbWidthOut = fbWidthDefault;
+    }
+    LOGV("GVRActivity: --- width %d", fbWidthOut);
+
+    fid = env.GetFieldID(parmsClass, "resolutionHeight", "I");
+    fbHeightOut = env.GetIntField(parms, fid);
+    if (-1 == fbHeightOut) {
+        env.SetIntField(parms, fid, fbHeightDefault);
+        fbHeightOut = fbHeightDefault;
+    }
+    LOGV("GVRActivity: --- height: %d", fbHeightOut);
+
+    fid = env.GetFieldID(parmsClass, "multiSamples", "I");
+    multiSamplesOut = env.GetIntField(parms, fid);
+    LOGV("GVRActivity: --- multisamples: %d", multiSamplesOut);
+
+    fid = env.GetFieldID(parmsClass, "colorFormat", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$ColorFormat;");
+    jobject textureFormat = env.GetObjectField(parms, fid);
+    jmethodID mid = env.GetMethodID(env.GetObjectClass(textureFormat),"getValue","()I");
+    int textureFormatValue = env.CallIntMethod(textureFormat, mid);
+    switch (textureFormatValue){
+    case 0:
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_565;
+        break;
+    case 1:
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_5551;
+        break;
+    case 2:
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_4444;
+        break;
+    case 3:
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_8888;
+        break;
+    case 4:
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_8888_sRGB;
+        break;
+    case 5:
+        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_RGBA16F;
+        break;
+    default:
+        LOGE("fatal error: unknown color texture format");
+        std::terminate();
+    }
+    LOGV("GVRActivity: --- color texture format: %d", colorTextureFormatOut);
+
+    fid = env.GetFieldID(parmsClass, "resolveDepth", "Z");
+    resolveDepthOut = env.GetBooleanField(parms, fid);
+    LOGV("GVRActivity: --- resolve depth: %d", resolveDepthOut);
+
+    if (resolveDepthOut) {
+        fid = env.GetFieldID(parmsClass, "depthFormat",
+                "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$DepthFormat;");
+        jobject depthFormat = env.GetObjectField(parms, fid);
+        mid = env.GetMethodID(env.GetObjectClass(depthFormat), "getValue", "()I");
+        int depthFormatValue = env.CallIntMethod(depthFormat, mid);
+        switch (depthFormatValue) {
+        case 0:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_NONE;
+            break;
+        case 1:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_16;
+            break;
+        case 2:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_24;
+            break;
+        case 3:
+            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_24_STENCIL_8;
+            break;
+        default:
+            LOGE("fatal error: unknown depth texture format");
+            std::terminate();
+        }
+    } else {
+        depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_NONE;
+    }
+    LOGV("GVRActivity: --- depth texture format: %d", depthTextureFormatOut);
+
+    LOGV("GVRActivity: ---------------------------------");
+}
+
+template<class R> void GVRActivityT<R>::getModeConfiguration(bool& allowPowerSaveOut,
+        bool& resetWindowFullscreenOut) {
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- mode configuration ---");
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "modeParms", "Lorg/gearvrf/utility/VrAppSettings$ModeParms;");
+    jobject modeParms = env.GetObjectField(vrAppSettings_, fid);
+    jclass modeParmsClass = env.GetObjectClass(modeParms);
+
+    allowPowerSaveOut = env.GetBooleanField(modeParms, env.GetFieldID(modeParmsClass, "allowPowerSave", "Z"));
+    LOGV("GVRActivity: --- allowPowerSave: %d", allowPowerSaveOut);
+    resetWindowFullscreenOut = env.GetBooleanField(modeParms, env.GetFieldID(modeParmsClass, "resetWindowFullScreen","Z"));
+    LOGV("GVRActivity: --- resetWindowFullscreen: %d", resetWindowFullscreenOut);
+
+    LOGV("GVRActivity: --------------------------");
+}
+
+template<class R> void GVRActivityT<R>::getPerformanceConfiguration(ovrPerformanceParms& parmsOut) {
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- performance configuration ---");
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "performanceParms", "Lorg/gearvrf/utility/VrAppSettings$PerformanceParms;");
+    jobject parms = env.GetObjectField(vrAppSettings_, fid);
+    jclass parmsClass = env.GetObjectClass(parms);
+
+    parmsOut.GpuLevel = env.GetIntField(parms, env.GetFieldID(parmsClass, "gpuLevel", "I"));
+    LOGV("GVRActivity: --- gpuLevel: %d", parmsOut.GpuLevel);
+    parmsOut.CpuLevel = env.GetIntField(parms, env.GetFieldID(parmsClass, "cpuLevel", "I"));
+    LOGV("GVRActivity: --- cpuLevel: %d", parmsOut.CpuLevel);
+
+    LOGV("GVRActivity: --------------------------");
+}
+
+template<class R> void GVRActivityT<R>::getHeadModelConfiguration(ovrHeadModelParms& parmsInOut) {
+    JNIEnv& env = *oculusJavaGlThread_.Env;
+
+    LOGV("GVRActivity: --- head model configuration ---");
+
+    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "headModelParms", "Lorg/gearvrf/utility/VrAppSettings$HeadModelParms;");
+    jobject parms = env.GetObjectField(vrAppSettings_, fid);
+    jclass parmsClass = env.GetObjectClass(parms);
+
+    fid = env.GetFieldID(parmsClass, "interpupillaryDistance", "F");
+    float interpupillaryDistance = env.GetFloatField(parms, fid);
+    if (interpupillaryDistance != interpupillaryDistance) {
+        //Value not set in Java side, current Value is NaN
+        //Need to copy the system settings to java side.
+        env.SetFloatField(parms, fid, parmsInOut.InterpupillaryDistance);
+    } else {
+        parmsInOut.InterpupillaryDistance = interpupillaryDistance;
+    }
+    LOGV("GVRActivity: --- interpupillaryDistance: %f", parmsInOut.InterpupillaryDistance);
+
+    fid = env.GetFieldID(parmsClass, "eyeHeight", "F");
+    float eyeHeight = env.GetFloatField(parms, fid);
+    if (eyeHeight != eyeHeight) {
+        //same as interpupilaryDistance
+        env.SetFloatField(parms, fid, parmsInOut.EyeHeight);
+    }else{
+        parmsInOut.EyeHeight = eyeHeight;
+    }
+    LOGV("GVRActivity: --- eyeHeight: %f", parmsInOut.EyeHeight);
+
+    fid = env.GetFieldID(parmsClass, "headModelDepth", "F");
+    float headModelDepth = env.GetFloatField(parms, fid);
+    if (headModelDepth != headModelDepth) {
+        //same as interpupilaryDistance
+        env.SetFloatField(parms, fid, oculusHeadModelParms_.HeadModelDepth);
+    } else {
+        oculusHeadModelParms_.HeadModelDepth = headModelDepth;
+    }
+    LOGV("GVRActivity: --- headModelDepth: %f", oculusHeadModelParms_.HeadModelDepth);
+
+    fid = env.GetFieldID(parmsClass, "headModelHeight", "F");
+    float headModelHeight = env.GetFloatField(parms, fid);
+    if (headModelHeight != headModelHeight) {
+        //same as interpupilaryDistance
+        env.SetFloatField(parms, fid, oculusHeadModelParms_.HeadModelHeight);
+    } else {
+        oculusHeadModelParms_.HeadModelHeight = headModelHeight;
+    }
+    LOGV("GVRActivity: --- headModelHeight: %f", oculusHeadModelParms_.HeadModelHeight);
+
+    LOGV("GVRActivity: --------------------------------");
+}
+template <class R> void GVRActivityT<R>::showGlobalMenu() {
+    LOGV("GVRActivity::showGlobalMenu");
+    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_GLOBAL_MENU, NULL);
+}
+
+template <class R> void GVRActivityT<R>::showConfirmQuit() {
+    LOGV("GVRActivity::showConfirmQuit");
+    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_CONFIRM_QUIT, NULL);
+}
+
+template<class R> bool GVRActivityT<R>::updateSensoredScene() {
+    return oculusJavaGlThread_.Env->CallBooleanMethod(oculusJavaGlThread_.ActivityObject, updateSensoredSceneMethodId);
+}
+
+template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
+    cameraRig_ = reinterpret_cast<CameraRig*>(cameraRig);
+    sensoredSceneUpdated_ = false;
+}
+
+template<class R> void GVRActivityT<R>::onSurfaceCreated() {
+    LOGV("GVRActivity::onSurfaceCreated");
+}
+
+template<class R> void GVRActivityT<R>::onSurfaceChanged() {
+    LOGV("GVRActivityT::onSurfaceChanged");
+
+    if (nullptr == oculusMobile_) {
+        enterVrMode();
+
+        int width, height, multisamples;
+        ovrTextureFormat colorTextureFormat;
+        ovrTextureFormat depthTextureFormat;
+        bool resolveDepth;
+        getFramebufferConfiguration(width, height,
+                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
+                vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
+                multisamples, colorTextureFormat, resolveDepth, depthTextureFormat);
+
+        for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+            bool b = FrameBuffer[eye].create(colorTextureFormat, width, height, multisamples, resolveDepth,
+                    depthTextureFormat);
+        }
+
+        ProjectionMatrix = ovrMatrix4f_CreateProjectionFov(
+                vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_X),
+                vrapi_GetSystemPropertyFloat(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_FOV_DEGREES_Y), 0.0f, 0.0f, 1.0f,
+                0.0f);
+        TexCoordsTanAnglesMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&ProjectionMatrix);
+    }
+}
+
+template<class R> void GVRActivityT<R>::onDrawFrame() {
+    if (nullptr == oculusMobile_) {
+        return;//use a notification for surfaceDestruction instead?
+    }
+
+    ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJavaGlThread_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(),
+            NULL);
+    parms.FrameIndex = ++frameIndex;
+    parms.MinimumVsyncs = 1;
+    parms.PerformanceParms = oculusPerformanceParms_;
+    parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Flags |= VRAPI_FRAME_LAYER_FLAG_CHROMATIC_ABERRATION_CORRECTION;
+
+    const double predictedDisplayTime = vrapi_GetPredictedDisplayTime(oculusMobile_, frameIndex);
+    const ovrTracking baseTracking = vrapi_GetPredictedTracking(oculusMobile_, predictedDisplayTime);
+
+    const ovrHeadModelParms headModelParms = vrapi_DefaultHeadModelParms();
+    const ovrTracking tracking = vrapi_ApplyHeadModel(&headModelParms, &baseTracking);
+
+    // Render the eye images.
+    for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+        ovrTracking updatedTracking = vrapi_GetPredictedTracking(oculusMobile_, tracking.HeadPose.TimeInSeconds);
+        updatedTracking.HeadPose.Pose.Position = tracking.HeadPose.Pose.Position;
+        //ovrTracking updatedTracking = *tracking;
+
+        FrameBuffer[eye].bind();
+        GL(glViewport(0, 0, FrameBuffer[eye].mWidth, FrameBuffer[eye].mHeight));
+        GL(glScissor(0, 0, FrameBuffer[eye].mWidth, FrameBuffer[eye].mHeight));
+
+        //todo
+        if (!sensoredSceneUpdated_ && headRotationProvider_.receivingUpdates()) {
+            sensoredSceneUpdated_ = updateSensoredScene();
+        }
+        headRotationProvider_.predict(*this, parms, (1 == eye ? 4.0f : 3.5f) / 60.0f);
+        oculusJavaGlThread_.Env->CallVoidMethod(activityRenderingCallbacks_, onDrawEyeMethodId, eye);
+
+        FrameBuffer[eye].resolve();
+
+        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].ColorTextureSwapChain =
+                FrameBuffer[eye].mColorTextureSwapChain;
+        parms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Textures[eye].TextureSwapChainIndex =
+                FrameBuffer[eye].mTextureSwapChainIndex;
+        for (int layer = 0; layer < VRAPI_FRAME_LAYER_TYPE_MAX; layer++) {
+            parms.Layers[layer].Textures[eye].TexCoordsFromTanAngles = TexCoordsTanAnglesMatrix;
+            parms.Layers[layer].Textures[eye].HeadPose = updatedTracking.HeadPose;
+        }
+
+        FrameBuffer[eye].advance();
+    }
+
+    FrameBufferObject::unbind();
+
+    vrapi_SubmitFrame(oculusMobile_, &parms);
+}
+
+template<class R> void GVRActivityT<R>::initializeOculusJava(JNIEnv& env, ovrJava& oculusJava) {
+    oculusJava.Env = &env;
+    env.GetJavaVM(&oculusJava.Vm);
+    oculusJava.ActivityObject = activity_;
+}
+
+template<class R> void GVRActivityT<R>::leaveVrMode() {
+    LOGV("GVRActivity::leaveVrMode");
+
+    if (nullptr != oculusMobile_) {
+        for (int eye = 0; eye < VRAPI_FRAME_LAYER_EYE_MAX; eye++) {
+            FrameBuffer[eye].destroy();
+        }
+
+        vrapi_LeaveVrMode(oculusMobile_);
+        oculusMobile_ = nullptr;
+    } else {
+        LOGW("GVRActivity::leaveVrMode: ignored, have not entered vrMode");
+    }
+}
+
+template<class R> void GVRActivityT<R>::enterVrMode() {
+    LOGV("GVRActivity::enterVrMode");
+
+    if (oculusMobile_) {
+        LOGW("GVRActivity::enterVrMode: ignored, already entered vrMode");
+        return;
+    }
+
+    ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
+    getModeConfiguration(parms.AllowPowerSave, parms.ResetWindowFullscreen);
+    oculusMobile_ = vrapi_EnterVrMode(&parms);
+
+    oculusPerformanceParms_ = vrapi_DefaultPerformanceParms();
+    getPerformanceConfiguration(oculusPerformanceParms_);
+
+    oculusHeadModelParms_ = vrapi_DefaultHeadModelParms();
+    getHeadModelConfiguration(oculusHeadModelParms_);
+}
+
+//explicit instantiation necessary so other units can see the methods
+//implemented here
+#ifdef USE_FEATURE_KSENSOR
+template class GVRActivityT<KSensorHeadRotation>;
+#else
+template class GVRActivityT<OculusHeadRotation>;
+#endif
+
+}

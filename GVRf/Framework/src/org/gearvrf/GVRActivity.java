@@ -56,27 +56,12 @@ public class GVRActivity extends Activity {
     public static final int KEY_EVENT_MAX = 6;
 
     private GVRViewManager mViewManager;
-    private GVRCamera mCamera;
     private VrAppSettings mAppSettings;
-    private long mPtr;
 
     // Group of views that are going to be drawn
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
-
-    static {
-        System.loadLibrary("gvrf");
-    }
-
-    static native void nativeSetCamera(long appPtr, long camera);
-
-    static native void nativeSetCameraRig(long appPtr, long cameraRig);
-
-    static native void nativeOnDock(long appPtr);
-
-    static native void nativeOnUndock(long appPtr);
-
-    static native void nativeOnDestroy(long appPtr);
+    private GVRActivityNative mActivityNative;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,12 +79,13 @@ public class GVRActivity extends Activity {
         mDockEventReceiver = new DockEventReceiver(this, mRunOnDock, mRunOnUndock);
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
 
-        mActivityHandler = new VrapiActivityHandler(this, mAppSettings, mRenderingCallbacks);
-        mPtr = mActivityHandler.onCreate();
-        if (0 == mPtr) {
+        mActivityNative = GVRActivityNative.createObject(this, mAppSettings, mRenderingCallbacks);
+        if (null == mActivityNative) {
             Log.e(TAG, "Unable to create native peer!");
             finish();
         }
+
+        mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
     }
 
     protected void onInitAppSettings(VrAppSettings appSettings) {
@@ -141,7 +127,7 @@ public class GVRActivity extends Activity {
         if (mViewManager != null) {
             mViewManager.onDestroy();
         }
-        nativeOnDestroy(mPtr);
+        mActivityNative.onDestroy();
         super.onDestroy();
     }
 
@@ -243,8 +229,8 @@ public class GVRActivity extends Activity {
         return Build.MODEL.contains("SM-N920");
     }
 
-    public long getAppPtr() {
-        return mPtr;
+    public long getNative() {
+        return mActivityNative.getNative();
     }
 
     void oneTimeShutDown() {
@@ -252,12 +238,11 @@ public class GVRActivity extends Activity {
     }
 
     void setCamera(GVRCamera camera) {
-        mCamera = camera;
-        nativeSetCamera(mPtr, camera.getNative());
+        mActivityNative.setCamera(camera);
     }
 
     void setCameraRig(GVRCameraRig cameraRig) {
-        nativeSetCameraRig(mPtr, cameraRig.getNative());
+        mActivityNative.setCameraRig(cameraRig);
     }
 
     @Override
@@ -344,8 +329,8 @@ public class GVRActivity extends Activity {
     private final Runnable mRunOnDock = new Runnable() {
         @Override
         public void run() {
-            if (0 != mPtr) {
-                nativeOnDock(mPtr);
+            if (null != mActivityNative) {
+                mActivityNative.onDock();
             }
         }
     };
@@ -353,8 +338,8 @@ public class GVRActivity extends Activity {
     private final Runnable mRunOnUndock = new Runnable() {
         @Override
         public void run() {
-            if (0 != mPtr) {
-                nativeOnUndock(mPtr);
+            if (null != mActivityNative) {
+                mActivityNative.onUndock();
             }
         }
     };
@@ -393,4 +378,5 @@ public class GVRActivity extends Activity {
         }
     };
     private ActivityHandler mActivityHandler;
+
 }

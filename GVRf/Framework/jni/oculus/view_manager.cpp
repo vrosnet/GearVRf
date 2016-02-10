@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "activity_jni.h"
+#include "activity.h"
 #include "view_manager.h"
 #include "../engine/renderer/renderer.h"
 #include "../objects/components/camera.h"
