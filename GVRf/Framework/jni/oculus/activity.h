@@ -18,17 +18,14 @@
 #define ACTIVITY_JNI_H
 
 #include "view_manager.h"
+#include "framebufferobject.h"
 #include "sensor/ksensor/k_sensor.h"
 #include "../objects/components/camera.h"
 #include "../objects/components/camera_rig.h"
-#include "glm/glm.hpp"
-
+#include "configuration_helper.h"
 #include "VrApi.h"
 #include "VrApi_Types.h"
 #include "VrApi_Helpers.h"
-
-#include <android/native_window_jni.h>
-#include "framebufferobject.h"
 
 namespace gvr {
 
@@ -55,7 +52,7 @@ public:
     R headRotationProvider_;
 
 private:
-    JNIEnv* jniMainThread_ = nullptr;           // for use by the Java UI thread
+    JNIEnv* envMainThread_ = nullptr;           // for use by the Java UI thread
 
     jclass activityClass_ = nullptr;            // must be looked up from main thread or FindClass() will fail
     jclass activityRenderingCallbacksClass_ = nullptr;
@@ -67,28 +64,10 @@ private:
     jmethodID onDrawEyeMethodId = nullptr;
     jmethodID updateSensoredSceneMethodId = nullptr;
 
-    void getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
-            const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
-            ovrTextureFormat& colorFormatOut, bool& resolveDepth, ovrTextureFormat& depthTextureFormatOut);
-    void getModeConfiguration(bool& allowPowerSaveOut, bool& resetWindowFullscreenOut);
-    void getPerformanceConfiguration(ovrPerformanceParms& parmsOut);
-    void getHeadModelConfiguration(ovrHeadModelParms& parmsOut);
-
-public:
-    void onSurfaceCreated();
-    void onSurfaceChanged();
-    void onDrawFrame();
-    bool initializeVrApi();
-    void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
-    void enterVrMode();
-    void leaveVrMode();
-
-    void showGlobalMenu();
-    void showConfirmQuit();
-
     jobject activity_;
-    jobject vrAppSettings_;
     jobject activityRenderingCallbacks_;
+
+    ConfigurationHelper configurationHelper_;
 
     ovrJava oculusJavaMainThread_;
     ovrJava oculusJavaGlThread_;
@@ -99,6 +78,21 @@ public:
     ovrMatrix4f TexCoordsTanAnglesMatrix;
     ovrPerformanceParms oculusPerformanceParms_;
     ovrHeadModelParms oculusHeadModelParms_;
+
+    void initializeOculusJava(JNIEnv& env, ovrJava& oculusJava);
+
+public:
+    void onSurfaceCreated(JNIEnv& env);
+    void onSurfaceChanged(JNIEnv& env);
+    void onDrawFrame();
+    bool initializeVrApi();
+    void leaveVrMode();
+
+    void showGlobalMenu();
+    void showConfirmQuit();
+
+    ovrMobile* getOculusContext() { return oculusMobile_; }
+    ovrHeadModelParms* getOculusHeadModelParms() { return &oculusHeadModelParms_; }
 };
 
 
@@ -147,9 +141,9 @@ class OculusHeadRotation {
 public:
     void predict(GVRActivityT<OculusHeadRotation>& gvrActivity, const ovrFrameParms& frameParms, const float time) {
         if (docked_) {
-            ovrMobile* ovr = gvrActivity.oculusMobile_;
+            ovrMobile* ovr = gvrActivity.getOculusContext();
             ovrTracking tracking = vrapi_GetPredictedTracking(ovr, vrapi_GetPredictedDisplayTime(ovr, frameParms.FrameIndex));
-            tracking = vrapi_ApplyHeadModel(&gvrActivity.oculusHeadModelParms_, &tracking);
+            tracking = vrapi_ApplyHeadModel(gvrActivity.getOculusHeadModelParms(), &tracking);
 
             const ovrQuatf& orientation = tracking.HeadPose.Pose.Orientation;
             glm::quat quat(orientation.w, orientation.x, orientation.y, orientation.z);

@@ -61,6 +61,9 @@ class VrapiActivityHandler implements ActivityHandler {
         mActivity = activity;
         mCallbacks = callbacks;
         mPtr = activity.getNative();
+        if (0 == mPtr) {
+            throw new IllegalArgumentException();
+        }
     }
 
     private void createSurfaceView() {
@@ -87,9 +90,7 @@ class VrapiActivityHandler implements ActivityHandler {
             mSurfaceView.queueEvent(new Runnable() {
                 @Override
                 public void run() {
-                    if (0 != mPtr) {
-                        nativeLeaveVrMode(mPtr);
-                    }
+                    nativeLeaveVrMode(mPtr);
 
                     mActivity.runOnUiThread(new Runnable() {
                         @Override
@@ -112,9 +113,7 @@ class VrapiActivityHandler implements ActivityHandler {
 
     @Override
     public void onDestroy() {
-        if (0 != mPtr) {
-            nativeOnDestroy(mPtr);
-        }
+        nativeOnDestroy(mPtr);
     }
 
     @Override
@@ -372,7 +371,6 @@ class VrapiActivityHandler implements ActivityHandler {
             }
 
             startChoreographerThreadIfNotStarted();
-            // mSurfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);??
             mCallbacks.onSurfaceChanged(width, height);
         }
 

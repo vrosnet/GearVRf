@@ -20,8 +20,6 @@
 #include <jni.h>
 #include <glm/gtc/type_ptr.hpp>
 #include "SystemActivities.h"
-#include "VrApi_Helpers.h"
-#include "VrApi_Types.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include "GLES3/gl3.h"
@@ -29,7 +27,6 @@
 
 static const char* activityClassName = "org/gearvrf/GVRActivity";
 static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/ActivityHandlerRenderingCallbacks";
-static const char* app_settings_name = "org/gearvrf/utility/VrAppSettings";
 
 namespace gvr {
 
@@ -37,19 +34,17 @@ namespace gvr {
 //                             GVRActivity
 //=============================================================================
 
-template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& jni, jobject activity, jobject vrAppSettings,
-        jobject callbacks) : jniMainThread_(&jni)
+template<class R> GVRActivityT<R>::GVRActivityT(JNIEnv& env, jobject activity, jobject vrAppSettings,
+        jobject callbacks) : envMainThread_(&env), configurationHelper_(env, vrAppSettings)
 {
-    activity_ = jni.NewGlobalRef(activity);
-    vrAppSettings_ = jni.NewGlobalRef(vrAppSettings);
-    activityRenderingCallbacks_ = jni.NewGlobalRef(callbacks);
+    activity_ = env.NewGlobalRef(activity);
+    activityRenderingCallbacks_ = env.NewGlobalRef(callbacks);
 
-    activityClass_ = GetGlobalClassReference(jni, activityClassName);
-    activityRenderingCallbacksClass_ = GetGlobalClassReference(jni, activityHandlerRenderingCallbacksClassName);
-    vrAppSettingsClass_ = GetGlobalClassReference(jni, app_settings_name);
+    activityClass_ = GetGlobalClassReference(env, activityClassName);
+    activityRenderingCallbacksClass_ = GetGlobalClassReference(env, activityHandlerRenderingCallbacksClassName);
 
-    onDrawEyeMethodId = GetMethodId(jni, activityRenderingCallbacksClass_, "onDrawEye", "(I)V");
-    updateSensoredSceneMethodId = GetMethodId(jni, activityClass_, "updateSensoredScene", "()Z");
+    onDrawEyeMethodId = GetMethodId(env, activityRenderingCallbacksClass_, "onDrawEye", "(I)V");
+    updateSensoredSceneMethodId = GetMethodId(env, activityClass_, "updateSensoredScene", "()Z");
 }
 
 template<class R> GVRActivityT<R>::~GVRActivityT() {
@@ -58,17 +53,15 @@ template<class R> GVRActivityT<R>::~GVRActivityT() {
     SystemActivities_Shutdown(&oculusJavaMainThread_);
     vrapi_Shutdown();
 
-    jniMainThread_->DeleteGlobalRef(vrAppSettingsClass_);
-    jniMainThread_->DeleteGlobalRef(activityRenderingCallbacksClass_);
-    jniMainThread_->DeleteGlobalRef(activityClass_);
+    envMainThread_->DeleteGlobalRef(activityRenderingCallbacksClass_);
+    envMainThread_->DeleteGlobalRef(activityClass_);
 
-    jniMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);
-    jniMainThread_->DeleteGlobalRef(vrAppSettings_);
-    jniMainThread_->DeleteGlobalRef(activity_);
+    envMainThread_->DeleteGlobalRef(activityRenderingCallbacks_);
+    envMainThread_->DeleteGlobalRef(activity_);
 }
 
 template<class R> bool GVRActivityT<R>::initializeVrApi() {
-    initializeOculusJava(*jniMainThread_, oculusJavaMainThread_);
+    initializeOculusJava(*envMainThread_, oculusJavaMainThread_);
     SystemActivities_Init(&oculusJavaMainThread_);
 
     const ovrInitParms initParms = vrapi_DefaultInitParms(&oculusJavaMainThread_);
@@ -84,189 +77,6 @@ template<class R> bool GVRActivityT<R>::initializeVrApi() {
     return true;
 }
 
-template <class R> void GVRActivityT<R>::getFramebufferConfiguration(int& fbWidthOut, int& fbHeightOut,
-        const int fbWidthDefault, const int fbHeightDefault, int& multiSamplesOut,
-        ovrTextureFormat& colorTextureFormatOut, bool& resolveDepthOut, ovrTextureFormat& depthTextureFormatOut)
-{
-    JNIEnv& env = *oculusJavaGlThread_.Env;
-
-    LOGV("GVRActivity: --- framebuffer configuration ---");
-
-    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "eyeBufferParms", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms;");
-    const jobject parms = env.GetObjectField(vrAppSettings_, fid);
-    const jclass parmsClass = env.GetObjectClass(parms);
-
-    fid = env.GetFieldID(parmsClass, "resolutionWidth", "I");
-    fbWidthOut = env.GetIntField(parms, fid);
-    if (-1 == fbWidthOut) {
-        env.SetIntField(parms, fid, fbWidthDefault);
-        fbWidthOut = fbWidthDefault;
-    }
-    LOGV("GVRActivity: --- width %d", fbWidthOut);
-
-    fid = env.GetFieldID(parmsClass, "resolutionHeight", "I");
-    fbHeightOut = env.GetIntField(parms, fid);
-    if (-1 == fbHeightOut) {
-        env.SetIntField(parms, fid, fbHeightDefault);
-        fbHeightOut = fbHeightDefault;
-    }
-    LOGV("GVRActivity: --- height: %d", fbHeightOut);
-
-    fid = env.GetFieldID(parmsClass, "multiSamples", "I");
-    multiSamplesOut = env.GetIntField(parms, fid);
-    LOGV("GVRActivity: --- multisamples: %d", multiSamplesOut);
-
-    fid = env.GetFieldID(parmsClass, "colorFormat", "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$ColorFormat;");
-    jobject textureFormat = env.GetObjectField(parms, fid);
-    jmethodID mid = env.GetMethodID(env.GetObjectClass(textureFormat),"getValue","()I");
-    int textureFormatValue = env.CallIntMethod(textureFormat, mid);
-    switch (textureFormatValue){
-    case 0:
-        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_565;
-        break;
-    case 1:
-        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_5551;
-        break;
-    case 2:
-        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_4444;
-        break;
-    case 3:
-        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_8888;
-        break;
-    case 4:
-        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_8888_sRGB;
-        break;
-    case 5:
-        colorTextureFormatOut = VRAPI_TEXTURE_FORMAT_RGBA16F;
-        break;
-    default:
-        LOGE("fatal error: unknown color texture format");
-        std::terminate();
-    }
-    LOGV("GVRActivity: --- color texture format: %d", colorTextureFormatOut);
-
-    fid = env.GetFieldID(parmsClass, "resolveDepth", "Z");
-    resolveDepthOut = env.GetBooleanField(parms, fid);
-    LOGV("GVRActivity: --- resolve depth: %d", resolveDepthOut);
-
-    if (resolveDepthOut) {
-        fid = env.GetFieldID(parmsClass, "depthFormat",
-                "Lorg/gearvrf/utility/VrAppSettings$EyeBufferParms$DepthFormat;");
-        jobject depthFormat = env.GetObjectField(parms, fid);
-        mid = env.GetMethodID(env.GetObjectClass(depthFormat), "getValue", "()I");
-        int depthFormatValue = env.CallIntMethod(depthFormat, mid);
-        switch (depthFormatValue) {
-        case 0:
-            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_NONE;
-            break;
-        case 1:
-            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_16;
-            break;
-        case 2:
-            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_24;
-            break;
-        case 3:
-            depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_DEPTH_24_STENCIL_8;
-            break;
-        default:
-            LOGE("fatal error: unknown depth texture format");
-            std::terminate();
-        }
-    } else {
-        depthTextureFormatOut = VRAPI_TEXTURE_FORMAT_NONE;
-    }
-    LOGV("GVRActivity: --- depth texture format: %d", depthTextureFormatOut);
-
-    LOGV("GVRActivity: ---------------------------------");
-}
-
-template<class R> void GVRActivityT<R>::getModeConfiguration(bool& allowPowerSaveOut,
-        bool& resetWindowFullscreenOut) {
-    JNIEnv& env = *oculusJavaGlThread_.Env;
-
-    LOGV("GVRActivity: --- mode configuration ---");
-
-    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "modeParms", "Lorg/gearvrf/utility/VrAppSettings$ModeParms;");
-    jobject modeParms = env.GetObjectField(vrAppSettings_, fid);
-    jclass modeParmsClass = env.GetObjectClass(modeParms);
-
-    allowPowerSaveOut = env.GetBooleanField(modeParms, env.GetFieldID(modeParmsClass, "allowPowerSave", "Z"));
-    LOGV("GVRActivity: --- allowPowerSave: %d", allowPowerSaveOut);
-    resetWindowFullscreenOut = env.GetBooleanField(modeParms, env.GetFieldID(modeParmsClass, "resetWindowFullScreen","Z"));
-    LOGV("GVRActivity: --- resetWindowFullscreen: %d", resetWindowFullscreenOut);
-
-    LOGV("GVRActivity: --------------------------");
-}
-
-template<class R> void GVRActivityT<R>::getPerformanceConfiguration(ovrPerformanceParms& parmsOut) {
-    JNIEnv& env = *oculusJavaGlThread_.Env;
-
-    LOGV("GVRActivity: --- performance configuration ---");
-
-    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "performanceParms", "Lorg/gearvrf/utility/VrAppSettings$PerformanceParms;");
-    jobject parms = env.GetObjectField(vrAppSettings_, fid);
-    jclass parmsClass = env.GetObjectClass(parms);
-
-    parmsOut.GpuLevel = env.GetIntField(parms, env.GetFieldID(parmsClass, "gpuLevel", "I"));
-    LOGV("GVRActivity: --- gpuLevel: %d", parmsOut.GpuLevel);
-    parmsOut.CpuLevel = env.GetIntField(parms, env.GetFieldID(parmsClass, "cpuLevel", "I"));
-    LOGV("GVRActivity: --- cpuLevel: %d", parmsOut.CpuLevel);
-
-    LOGV("GVRActivity: --------------------------");
-}
-
-template<class R> void GVRActivityT<R>::getHeadModelConfiguration(ovrHeadModelParms& parmsInOut) {
-    JNIEnv& env = *oculusJavaGlThread_.Env;
-
-    LOGV("GVRActivity: --- head model configuration ---");
-
-    jfieldID fid = env.GetFieldID(vrAppSettingsClass_, "headModelParms", "Lorg/gearvrf/utility/VrAppSettings$HeadModelParms;");
-    jobject parms = env.GetObjectField(vrAppSettings_, fid);
-    jclass parmsClass = env.GetObjectClass(parms);
-
-    fid = env.GetFieldID(parmsClass, "interpupillaryDistance", "F");
-    float interpupillaryDistance = env.GetFloatField(parms, fid);
-    if (interpupillaryDistance != interpupillaryDistance) {
-        //Value not set in Java side, current Value is NaN
-        //Need to copy the system settings to java side.
-        env.SetFloatField(parms, fid, parmsInOut.InterpupillaryDistance);
-    } else {
-        parmsInOut.InterpupillaryDistance = interpupillaryDistance;
-    }
-    LOGV("GVRActivity: --- interpupillaryDistance: %f", parmsInOut.InterpupillaryDistance);
-
-    fid = env.GetFieldID(parmsClass, "eyeHeight", "F");
-    float eyeHeight = env.GetFloatField(parms, fid);
-    if (eyeHeight != eyeHeight) {
-        //same as interpupilaryDistance
-        env.SetFloatField(parms, fid, parmsInOut.EyeHeight);
-    }else{
-        parmsInOut.EyeHeight = eyeHeight;
-    }
-    LOGV("GVRActivity: --- eyeHeight: %f", parmsInOut.EyeHeight);
-
-    fid = env.GetFieldID(parmsClass, "headModelDepth", "F");
-    float headModelDepth = env.GetFloatField(parms, fid);
-    if (headModelDepth != headModelDepth) {
-        //same as interpupilaryDistance
-        env.SetFloatField(parms, fid, oculusHeadModelParms_.HeadModelDepth);
-    } else {
-        oculusHeadModelParms_.HeadModelDepth = headModelDepth;
-    }
-    LOGV("GVRActivity: --- headModelDepth: %f", oculusHeadModelParms_.HeadModelDepth);
-
-    fid = env.GetFieldID(parmsClass, "headModelHeight", "F");
-    float headModelHeight = env.GetFloatField(parms, fid);
-    if (headModelHeight != headModelHeight) {
-        //same as interpupilaryDistance
-        env.SetFloatField(parms, fid, oculusHeadModelParms_.HeadModelHeight);
-    } else {
-        oculusHeadModelParms_.HeadModelHeight = headModelHeight;
-    }
-    LOGV("GVRActivity: --- headModelHeight: %f", oculusHeadModelParms_.HeadModelHeight);
-
-    LOGV("GVRActivity: --------------------------------");
-}
 template <class R> void GVRActivityT<R>::showGlobalMenu() {
     LOGV("GVRActivity::showGlobalMenu");
     SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_GLOBAL_MENU, NULL);
@@ -286,21 +96,32 @@ template<class R> void GVRActivityT<R>::setCameraRig(jlong cameraRig) {
     sensoredSceneUpdated_ = false;
 }
 
-template<class R> void GVRActivityT<R>::onSurfaceCreated() {
+template<class R> void GVRActivityT<R>::onSurfaceCreated(JNIEnv& env) {
     LOGV("GVRActivity::onSurfaceCreated");
+    initializeOculusJava(env, oculusJavaGlThread_);
 }
 
-template<class R> void GVRActivityT<R>::onSurfaceChanged() {
+template<class R> void GVRActivityT<R>::onSurfaceChanged(JNIEnv& env) {
     LOGV("GVRActivityT::onSurfaceChanged");
+    initializeOculusJava(env, oculusJavaGlThread_);
 
     if (nullptr == oculusMobile_) {
-        enterVrMode();
+        ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
+        configurationHelper_.getModeConfiguration(env, parms.AllowPowerSave, parms.ResetWindowFullscreen);
+        oculusMobile_ = vrapi_EnterVrMode(&parms);
 
+        oculusPerformanceParms_ = vrapi_DefaultPerformanceParms();
+        configurationHelper_.getPerformanceConfiguration(env, oculusPerformanceParms_);
+
+        oculusHeadModelParms_ = vrapi_DefaultHeadModelParms();
+        configurationHelper_.getHeadModelConfiguration(env, oculusHeadModelParms_);
+
+        //@todo struct instead?
         int width, height, multisamples;
         ovrTextureFormat colorTextureFormat;
         ovrTextureFormat depthTextureFormat;
         bool resolveDepth;
-        getFramebufferConfiguration(width, height,
+        configurationHelper_.getFramebufferConfiguration(env, width, height,
                 vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_WIDTH),
                 vrapi_GetSystemPropertyInt(&oculusJavaGlThread_, VRAPI_SYS_PROP_SUGGESTED_EYE_TEXTURE_HEIGHT),
                 multisamples, colorTextureFormat, resolveDepth, depthTextureFormat);
@@ -391,25 +212,6 @@ template<class R> void GVRActivityT<R>::leaveVrMode() {
     } else {
         LOGW("GVRActivity::leaveVrMode: ignored, have not entered vrMode");
     }
-}
-
-template<class R> void GVRActivityT<R>::enterVrMode() {
-    LOGV("GVRActivity::enterVrMode");
-
-    if (oculusMobile_) {
-        LOGW("GVRActivity::enterVrMode: ignored, already entered vrMode");
-        return;
-    }
-
-    ovrModeParms parms = vrapi_DefaultModeParms(&oculusJavaGlThread_);
-    getModeConfiguration(parms.AllowPowerSave, parms.ResetWindowFullscreen);
-    oculusMobile_ = vrapi_EnterVrMode(&parms);
-
-    oculusPerformanceParms_ = vrapi_DefaultPerformanceParms();
-    getPerformanceConfiguration(oculusPerformanceParms_);
-
-    oculusHeadModelParms_ = vrapi_DefaultHeadModelParms();
-    getHeadModelConfiguration(oculusHeadModelParms_);
 }
 
 //explicit instantiation necessary so other units can see the methods

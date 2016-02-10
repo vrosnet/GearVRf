@@ -72,15 +72,13 @@ JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeLeaveVrMode(J
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceCreated(JNIEnv * jni, jclass clazz,
         jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
-    activity->initializeOculusJava(*jni, activity->oculusJavaGlThread_);
-    activity->onSurfaceCreated();
+    activity->onSurfaceCreated(*jni);
 }
 
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnSurfaceChanged(JNIEnv * jni, jclass clazz,
         jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
-    activity->initializeOculusJava(*jni, activity->oculusJavaGlThread_);
-    activity->onSurfaceChanged();
+    activity->onSurfaceChanged(*jni);
 }
 
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeOnDrawFrame(JNIEnv * jni, jclass clazz,
