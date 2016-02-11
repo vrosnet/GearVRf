@@ -73,7 +73,7 @@ public:
     void onSurfaceCreated(JNIEnv& env);
     void onSurfaceChanged(JNIEnv& env);
     void onDrawFrame();
-    bool initializeVrApi();
+    int initializeVrApi();
     void leaveVrMode();
 
     void showGlobalMenu();

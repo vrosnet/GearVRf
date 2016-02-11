@@ -15,6 +15,7 @@
 
 package org.gearvrf;
 
+import org.gearvrf.VrapiActivityHandler.VrapiNotAvailableException;
 import org.gearvrf.scene_objects.GVRViewSceneObject;
 import org.gearvrf.scene_objects.view.GVRView;
 import org.gearvrf.utility.DockEventReceiver;
@@ -80,12 +81,11 @@ public class GVRActivity extends Activity {
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
 
         mActivityNative = GVRActivityNative.createObject(this, mAppSettings, mRenderingCallbacks);
-        if (null == mActivityNative) {
-            Log.e(TAG, "Unable to create native peer!");
-            finish();
-        }
 
-        mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
+        try {
+            mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
+        } catch (final VrapiNotAvailableException ignored) {
+        }
     }
 
     protected void onInitAppSettings(VrAppSettings appSettings) {
@@ -104,7 +104,9 @@ public class GVRActivity extends Activity {
         if (null != mDockEventReceiver) {
             mDockEventReceiver.stop();
         }
-        mActivityHandler.onPause();
+        if (null != mActivityHandler) {
+            mActivityHandler.onPause();
+        }
         super.onPause();
     }
 
@@ -118,7 +120,9 @@ public class GVRActivity extends Activity {
         if (null != mDockEventReceiver) {
             mDockEventReceiver.start();
         }
-        mActivityHandler.onResume();
+        if (null != mActivityHandler) {
+            mActivityHandler.onResume();
+        }
     }
 
     @Override
@@ -158,13 +162,16 @@ public class GVRActivity extends Activity {
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     distortionDataFileName, mAppSettings);
             onInitAppSettings(mAppSettings);
-            if (isVrSupported() && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
+            if (isVrSupported() && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()
+                    && null != mActivityHandler) {
                 mViewManager = new GVRViewManager(this, gvrScript, xmlParser);
             } else {
                 mViewManager = new GVRMonoscopicViewManager(this, gvrScript,
                         xmlParser);
             }
-            mActivityHandler.onSetScript();
+            if (null != mActivityHandler) {
+                mActivityHandler.onSetScript();
+            }
         } else {
             throw new IllegalArgumentException(
                     "You can not set orientation to portrait for GVRF apps.");
@@ -266,7 +273,9 @@ public class GVRActivity extends Activity {
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (KeyEvent.KEYCODE_BACK == keyCode) {
-            return mActivityHandler.onBack();
+            if (null != mActivityHandler) {
+                return mActivityHandler.onBack();
+            }
         }
         return super.onKeyUp(keyCode, event);
     }
@@ -274,7 +283,9 @@ public class GVRActivity extends Activity {
     @Override
     public boolean onKeyLongPress(int keyCode, KeyEvent event) {
         if (KeyEvent.KEYCODE_BACK == keyCode) {
-            return mActivityHandler.onBackLongPress();
+            if (null != mActivityHandler) {
+                return mActivityHandler.onBackLongPress();
+            }
         }
         return super.onKeyLongPress(keyCode, event);
     }

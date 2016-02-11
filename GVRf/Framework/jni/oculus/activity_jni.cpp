@@ -23,12 +23,7 @@ extern "C" {
 JNIEXPORT long JNICALL Java_org_gearvrf_GVRActivityNative_onCreate(JNIEnv* jni, jclass clazz,
         jobject activity, jobject vrAppSettings, jobject callbacks) {
     GVRActivity* gvrActivity = new GVRActivity(*jni, activity, vrAppSettings, callbacks);
-    if (gvrActivity->initializeVrApi()) {
-        return reinterpret_cast<long>(gvrActivity);
-    } else {
-        delete gvrActivity;
-        return 0;
-    }
+    return reinterpret_cast<long>(gvrActivity);
 }
 
 JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
@@ -95,6 +90,11 @@ JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeShowGlobalMen
 JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeShowConfirmQuit(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->showConfirmQuit();
+}
+
+JNIEXPORT jint JNICALL Java_org_gearvrf_VrapiActivityHandler_nativeInitializeVrApi(JNIEnv * jni, jclass clazz, jlong appPtr) {
+    GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
+    return activity->initializeVrApi();
 }
 
 } //extern "C" {

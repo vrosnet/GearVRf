@@ -45,8 +45,6 @@ import android.view.SurfaceHolder;
  */
 class VrapiActivityHandler implements ActivityHandler {
 
-    private static final String TAG = "VrapiActivityHandler";
-
     private final GVRActivity mActivity;
     private long mPtr;
     private GLSurfaceView mSurfaceView;
@@ -54,15 +52,17 @@ class VrapiActivityHandler implements ActivityHandler {
     private EGLSurface mPixelBuffer;
     private EGLSurface mMainSurface;
 
-    VrapiActivityHandler(final GVRActivity activity, final ActivityHandlerRenderingCallbacks callbacks) {
+    VrapiActivityHandler(final GVRActivity activity,
+            final ActivityHandlerRenderingCallbacks callbacks) throws VrapiNotAvailableException {
         if (null == callbacks || null == activity) {
             throw new IllegalArgumentException();
         }
         mActivity = activity;
         mCallbacks = callbacks;
         mPtr = activity.getNative();
-        if (0 == mPtr) {
-            throw new IllegalArgumentException();
+
+        if (VRAPI_INITIALIZE_UNKNOWN_ERROR == nativeInitializeVrApi(mPtr)) {
+            throw new VrapiNotAvailableException();
         }
     }
 
@@ -388,6 +388,11 @@ class VrapiActivityHandler implements ActivityHandler {
         }
     };
 
+
+    @SuppressWarnings("serial")
+    static final class VrapiNotAvailableException extends Exception {
+    }
+
     private static native void nativeOnSurfaceCreated(long ptr);
 
     private static native void nativeOnSurfaceChanged(long ptr);
@@ -399,4 +404,12 @@ class VrapiActivityHandler implements ActivityHandler {
     private static native void nativeShowGlobalMenu(long appPtr);
 
     private static native void nativeShowConfirmQuit(long appPtr);
+
+    private static native int nativeInitializeVrApi(long ptr);
+
+    private static final int VRAPI_INITIALIZE_SUCCESS = 0;
+    private static final int VRAPI_INITIALIZE_UNKNOWN_ERROR = -1;
+    private static final int VRAPI_INITIALIZE_PERMISSIONS_ERROR = -2;
+
+    private static final String TAG = "VrapiActivityHandler";
 }
