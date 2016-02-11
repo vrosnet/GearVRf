@@ -5,8 +5,6 @@ interface ActivityHandler {
 
     public void onResume();
 
-    public void onDestroy();
-
     public void onSetScript();
 
     public boolean onBack();

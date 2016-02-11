@@ -66,31 +66,17 @@ class VrapiActivityHandler implements ActivityHandler {
         }
     }
 
-    private void createSurfaceView() {
-        mSurfaceView = new GLSurfaceView(mActivity);
-        mSurfaceView.setPreserveEGLContextOnPause(true);
-        mSurfaceView.setEGLContextClientVersion(3);
-
-        mSurfaceView.setEGLContextFactory(mContextFactory);
-        mSurfaceView.setEGLConfigChooser(mConfigChooser);
-        mSurfaceView.setEGLWindowSurfaceFactory(mWindowSurfaceFactory);
-
-        mSurfaceView.setRenderer(mRenderer);
-        mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
-
-        mActivity.setContentView(mSurfaceView);
-    }
-
     @Override
     public void onPause() {
-        mChoreographerThread.quit();
-        mChoreographerThread = null;
+        stopChoreographerThread();
 
         if (null != mSurfaceView) {
             mSurfaceView.queueEvent(new Runnable() {
                 @Override
                 public void run() {
+                    //these two must happen on the gl thread
                     nativeLeaveVrMode(mPtr);
+                    destroySurfaceForTimeWarp();
 
                     mActivity.runOnUiThread(new Runnable() {
                         @Override
@@ -112,11 +98,6 @@ class VrapiActivityHandler implements ActivityHandler {
     }
 
     @Override
-    public void onDestroy() {
-        nativeOnDestroy(mPtr);
-    }
-
-    @Override
     public boolean onBack() {
         nativeShowConfirmQuit(mPtr);
         return true;
@@ -130,7 +111,17 @@ class VrapiActivityHandler implements ActivityHandler {
 
     @Override
     public void onSetScript() {
-        createSurfaceView();
+        mSurfaceView = new GLSurfaceView(mActivity);
+
+        mSurfaceView.setPreserveEGLContextOnPause(true);
+        mSurfaceView.setEGLContextClientVersion(3);
+        mSurfaceView.setEGLContextFactory(mContextFactory);
+        mSurfaceView.setEGLConfigChooser(mConfigChooser);
+        mSurfaceView.setEGLWindowSurfaceFactory(mWindowSurfaceFactory);
+        mSurfaceView.setRenderer(mRenderer);
+        mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+
+        mActivity.setContentView(mSurfaceView);
 
         final DisplayMetrics metrics = new DisplayMetrics();
         mActivity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
@@ -148,6 +139,7 @@ class VrapiActivityHandler implements ActivityHandler {
             Log.v(TAG, "--- window configuration ---");
             Log.v(TAG, "--- width: %d", framebufferWidth);
             Log.v(TAG, "--- height: %d", framebufferHeight);
+            //a different resolution of the native window requested 
             holder.setFixedSize(framebufferWidth, framebufferHeight);
             Log.v(TAG, "----------------------------");
         }
@@ -156,7 +148,7 @@ class VrapiActivityHandler implements ActivityHandler {
     private final EGLContextFactory mContextFactory = new EGLContextFactory() {
         @Override
         public void destroyContext(final EGL10 egl, final EGLDisplay display, final EGLContext context) {
-            Log.i(TAG, "EGLContextFactory.destroyContext()");
+            Log.v(TAG, "EGLContextFactory.destroyContext");
             egl.eglDestroyContext(display, context);
         }
 
@@ -171,7 +163,7 @@ class VrapiActivityHandler implements ActivityHandler {
             final EGLContext context = egl.eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT,
                     contextAttribs);
             if (context == EGL10.EGL_NO_CONTEXT) {
-                throw new RuntimeException("eglCreateContext failed; error 0x"
+                throw new IllegalStateException("eglCreateContext failed; egl error 0x"
                         + Integer.toHexString(egl.eglGetError()));
             }
             return context;
@@ -181,7 +173,7 @@ class VrapiActivityHandler implements ActivityHandler {
     private final EGLWindowSurfaceFactory mWindowSurfaceFactory = new EGLWindowSurfaceFactory() {
         @Override
         public void destroySurface(final EGL10 egl, final EGLDisplay display, final EGLSurface surface) {
-            Log.i(TAG, "EGLWindowSurfaceFactory.destroySurface()");
+            Log.v(TAG, "EGLWindowSurfaceFactory.destroySurface " + Integer.toHexString(surface.hashCode()));
             egl.eglDestroySurface(display, surface);
         }
 
@@ -195,9 +187,10 @@ class VrapiActivityHandler implements ActivityHandler {
             };
             mPixelBuffer = egl.eglCreatePbufferSurface(display, config, surfaceAttribs);
             if (EGL10.EGL_NO_SURFACE == mPixelBuffer) {
-                throw new RuntimeException("Pixel buffer surface not created; error 0x"
+                throw new IllegalStateException("Pixel buffer surface not created; egl error 0x"
                         + Integer.toHexString(egl.eglGetError()));
             }
+            Log.v(TAG, "EGLWindowSurfaceFactory.createWindowSurface : " + Integer.toHexString(mPixelBuffer.hashCode()));
             return mPixelBuffer;
         }
     };
@@ -207,11 +200,11 @@ class VrapiActivityHandler implements ActivityHandler {
         public EGLConfig chooseConfig(final EGL10 egl, final EGLDisplay display) {
             final int[] numberConfigs = new int[1];
             if (!egl.eglGetConfigs(display, null, 0, numberConfigs)) {
-                throw new RuntimeException("Unable to retrieve number of egl configs available.");
+                throw new IllegalStateException("Unable to retrieve number of egl configs available.");
             }
             final EGLConfig[] configs = new EGLConfig[numberConfigs[0]];
             if (!egl.eglGetConfigs(display, configs, configs.length, numberConfigs)) {
-                throw new RuntimeException("Unable to retrieve egl configs available.");
+                throw new IllegalStateException("Unable to retrieve egl configs available.");
             }
 
             final int[] configAttribs = {
@@ -232,7 +225,7 @@ class VrapiActivityHandler implements ActivityHandler {
                 final int EGL_OPENGL_ES3_BIT_KHR = 0x0040;
                 if (!egl.eglGetConfigAttrib(display, configs[i], EGL10.EGL_RENDERABLE_TYPE,
                         value)) {
-                    Log.i(TAG, "eglGetConfigAttrib for EGL_RENDERABLE_TYPE failed");
+                    Log.v(TAG, "eglGetConfigAttrib for EGL_RENDERABLE_TYPE failed");
                     continue;
                 }
                 if ((value[0] & EGL_OPENGL_ES3_BIT_KHR) != EGL_OPENGL_ES3_BIT_KHR) {
@@ -240,7 +233,7 @@ class VrapiActivityHandler implements ActivityHandler {
                 }
 
                 if (!egl.eglGetConfigAttrib(display, configs[i], EGL10.EGL_SURFACE_TYPE, value)) {
-                    Log.i(TAG, "eglGetConfigAttrib for EGL_SURFACE_TYPE failed");
+                    Log.v(TAG, "eglGetConfigAttrib for EGL_SURFACE_TYPE failed");
                     continue;
                 }
                 if ((value[0]
@@ -252,7 +245,7 @@ class VrapiActivityHandler implements ActivityHandler {
                 int j = 0;
                 for (; configAttribs[j] != EGL10.EGL_NONE; j += 2) {
                     if (!egl.eglGetConfigAttrib(display, configs[i], configAttribs[j], value)) {
-                        Log.i(TAG, "eglGetConfigAttrib for " + configAttribs[j] + " failed");
+                        Log.v(TAG, "eglGetConfigAttrib for " + configAttribs[j] + " failed");
                         continue;
                     }
                     if (value[0] != configAttribs[j + 1]) {
@@ -289,17 +282,26 @@ class VrapiActivityHandler implements ActivityHandler {
                     Choreographer.getInstance().removeFrameCallback(mFrameCallback);
                     Choreographer.getInstance().postFrameCallback(mFrameCallback);
                 }
-
-                @Override
-                public void run() {
-                    try {
-                        super.run();
-                    } finally {
-                        Choreographer.getInstance().removeFrameCallback(mFrameCallback);
-                    }
-                }
             };
             mChoreographerThread.start();
+        }
+    }
+
+    private final void stopChoreographerThread() {
+        if (null != mChoreographerThread) {
+            Choreographer.getInstance().removeFrameCallback(mFrameCallback);
+            mChoreographerThread.quitSafely();
+            mChoreographerThread = null;
+        }
+    }
+
+    private void destroySurfaceForTimeWarp() {
+        if (null != mMainSurface) {
+            Log.v(TAG, "destroying mMainSurface: 0x%x", mMainSurface.hashCode());
+            final EGL10 egl = (EGL10) EGLContext.getEGL();
+            final EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+            egl.eglDestroySurface(display, mMainSurface);
+            mMainSurface = null;
         }
     }
 
@@ -318,6 +320,11 @@ class VrapiActivityHandler implements ActivityHandler {
         @Override
         public void onSurfaceChanged(final GL10 gl, final int width, final int height) {
             Log.i(TAG, "onSurfaceChanged; %d x %d", width, height);
+
+            if (null != mMainSurface) {
+                Log.v(TAG, "short-circuiting onSurfaceChanged");
+                return;
+            }
 
             final EGL10 egl = (EGL10) EGLContext.getEGL();
             final EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
@@ -351,22 +358,22 @@ class VrapiActivityHandler implements ActivityHandler {
 
             // this is the display surface timewarp will hijack
             mMainSurface = egl.eglCreateWindowSurface(display, mConfig, mSurfaceView.getHolder(), configAttribs);
+            Log.v(TAG, "mMainSurface: 0x%x", mMainSurface.hashCode());
+
             if (mMainSurface == EGL10.EGL_NO_SURFACE) {
-                Log.e(TAG, "eglCreateWindowSurface() failed: 0x%X", egl.eglGetError());
-                return;
+                throw new IllegalStateException(
+                        "eglCreateWindowSurface() failed: 0x" + Integer.toHexString(egl.eglGetError()));
             }
             if (!egl.eglMakeCurrent(display, mMainSurface, mMainSurface, context)) {
-                Log.e(TAG, "eglMakeCurrent() failed: 0x%X", egl.eglGetError());
-                return;
+                throw new IllegalStateException(
+                        "eglMakeCurrent() failed: 0x " + Integer.toHexString(egl.eglGetError()));
             }
             nativeOnSurfaceChanged(mPtr);
 
             // necessary to explicitly make the pbuffer current for the rendering thread;
-            // TimeWarp gets the window surface
+            // TimeWarp took over the window surface
             if (!egl.eglMakeCurrent(display, mPixelBuffer, mPixelBuffer, context)) {
-                egl.eglDestroySurface(display, mPixelBuffer);
-                egl.eglDestroyContext(display, context);
-                throw new RuntimeException("Failed to make context current ; error 0x"
+                throw new IllegalStateException("Failed to make context current ; egl error 0x"
                         + Integer.toHexString(egl.eglGetError()));
             }
 
@@ -389,8 +396,6 @@ class VrapiActivityHandler implements ActivityHandler {
     private static native void nativeOnDrawFrame(long ptr);
 
     private static native void nativeLeaveVrMode(long ptr);
-
-    private static native void nativeOnDestroy(long ptr);
 
     private static native void nativeShowGlobalMenu(long appPtr);
 
