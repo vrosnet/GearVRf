@@ -137,10 +137,6 @@ void GVRActivity::onSurfaceChanged(JNIEnv& env) {
 }
 
 void GVRActivity::onDrawFrame() {
-    if (nullptr == oculusMobile_) {
-        return;//use a notification for surfaceDestruction instead?
-    }
-
     ovrFrameParms parms = vrapi_DefaultFrameParms(&oculusJavaGlThread_, VRAPI_FRAME_INIT_DEFAULT, vrapi_GetTimeInSeconds(),
             NULL);
     parms.FrameIndex = ++frameIndex;

@@ -71,19 +71,13 @@ class VrapiActivityHandler implements ActivityHandler {
         stopChoreographerThread();
 
         if (null != mSurfaceView) {
+            mSurfaceView.onPause();
             mSurfaceView.queueEvent(new Runnable() {
                 @Override
                 public void run() {
                     //these two must happen on the gl thread
                     nativeLeaveVrMode(mPtr);
                     destroySurfaceForTimeWarp();
-
-                    mActivity.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mSurfaceView.onPause();
-                        }
-                    });
                 }
             });
         }
@@ -291,7 +285,12 @@ class VrapiActivityHandler implements ActivityHandler {
         if (null != mChoreographerThread) {
             Choreographer.getInstance().removeFrameCallback(mFrameCallback);
             mChoreographerThread.quitSafely();
-            mChoreographerThread = null;
+            try {
+                mChoreographerThread.join();
+            } catch (final Exception ignored) {
+            } finally {
+                mChoreographerThread = null;
+            }
         }
     }
 
