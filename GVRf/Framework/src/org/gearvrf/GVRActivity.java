@@ -63,6 +63,7 @@ public class GVRActivity extends Activity {
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
     private GVRActivityNative mActivityNative;
+    private boolean mPaused = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,6 +86,7 @@ public class GVRActivity extends Activity {
         try {
             mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
         } catch (final VrapiNotAvailableException ignored) {
+            // will fall back to mono rendering in that case
         }
     }
 
@@ -98,6 +100,8 @@ public class GVRActivity extends Activity {
     @Override
     protected void onPause() {
         android.util.Log.i(TAG, "onPause " + Integer.toHexString(hashCode()));
+
+        mPaused = true;
         if (mViewManager != null) {
             mViewManager.onPause();
         }
@@ -113,6 +117,8 @@ public class GVRActivity extends Activity {
     @Override
     protected void onResume() {
         android.util.Log.i(TAG, "onResume " + Integer.toHexString(hashCode()));
+
+        mPaused = false;
         super.onResume();
         if (mViewManager != null) {
             mViewManager.onResume();
@@ -272,7 +278,7 @@ public class GVRActivity extends Activity {
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (KeyEvent.KEYCODE_BACK == keyCode) {
+        if (!mPaused && KeyEvent.KEYCODE_BACK == keyCode) {
             if (null != mActivityHandler) {
                 return mActivityHandler.onBack();
             }
