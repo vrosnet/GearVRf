@@ -271,6 +271,7 @@ ShadowShader::ShadowShader() :
 
     LOGI(" Initialize ShadowShader ");
     checkGlError("ShadowShader::ShadowShader");
+    deleter_ = getDeleterForThisThread();
 
     program_ = new GLProgram(VERTEX_SHADER, FRAGMENT_SHADER);
     glUseProgram(program_->id());
@@ -334,7 +335,7 @@ ShadowShader::~ShadowShader() {
     }
 
     if (vaoID_ != 0) {
-        gl_delete.queueVertexArray(vaoID_);
+        deleter_->queueVertexArray(vaoID_);
         vaoID_ = 0;
     }
 
