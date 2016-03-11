@@ -62,8 +62,8 @@ public class GVRBitmapTexture extends GVRTexture {
      */
     public GVRBitmapTexture(GVRContext gvrContext, Bitmap bitmap,
             GVRTextureParameters textureParameters) {
-        super(gvrContext, NativeBaseTexture.bareConstructor(textureParameters
-                .getCurrentValuesArray()));
+        super(gvrContext, NativeBaseTexture.bareConstructor(textureParameters.getCurrentValuesArray()));
+        NativeBaseTexture.setJavaOwner(getNative(), this);
         update(bitmap);
     }
 
@@ -162,6 +162,7 @@ public class GVRBitmapTexture extends GVRTexture {
             throws IllegalArgumentException {
         super(gvrContext, NativeBaseTexture.bareConstructor(textureParameters
                 .getCurrentValuesArray()));
+        NativeBaseTexture.setJavaOwner(getNative(), this);
         update(width, height, grayscaleData);
     }
 
@@ -320,8 +321,9 @@ public class GVRBitmapTexture extends GVRTexture {
     private final static String TAG = "GVRBitmapTexture";
 }
 
-class NativeBaseTexture {
+final class NativeBaseTexture {
     static native long bareConstructor(int[] textureParameterValues);
+    static native long setJavaOwner(long pointer, GVRTexture owner);
 
     static native boolean update(long pointer, int width, int height,
             byte[] grayscaleData);

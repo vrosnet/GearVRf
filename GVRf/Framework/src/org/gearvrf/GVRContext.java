@@ -45,6 +45,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.view.KeyEvent;
 
 /**
@@ -154,6 +156,10 @@ public abstract class GVRContext {
 
     GVRContext(GVRActivity context) {
         mContext = context;
+
+        mHandlerThread = new HandlerThread("gvrf-main");
+        mHandlerThread.start(); //stop from finalizer?
+        mHandler = new Handler(mHandlerThread.getLooper());
     }
 
     /**
@@ -2679,4 +2685,19 @@ public abstract class GVRContext {
         return mTag;
     }
 
+    private final HandlerThread mHandlerThread;
+    private final Handler mHandler;
+
+    void runOnMainThread(final Runnable runnable) {
+        mHandler.post(runnable);
+    }
+
+    @Override
+    public void finalize() throws Throwable {
+        try {
+            mHandlerThread.getLooper().quitSafely();
+        } finally {
+            super.finalize();
+        }
+    }
 }
