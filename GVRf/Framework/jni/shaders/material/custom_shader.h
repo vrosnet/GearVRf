@@ -40,20 +40,20 @@ class Material;
 
 class CustomShader: public HybridObject {
 public:
-    explicit CustomShader(std::string vertex_shader,
-            std::string fragment_shader);
+    explicit CustomShader(const std::string& vertex_shader,
+            const std::string& fragment_shader);
     virtual ~CustomShader();
 
-    void addTextureKey(std::string variable_name, std::string key);
-    void addAttributeFloatKey(std::string variable_name, std::string key);
-    void addAttributeVec2Key(std::string variable_name, std::string key);
-    void addAttributeVec3Key(std::string variable_name, std::string key);
-    void addAttributeVec4Key(std::string variable_name, std::string key);
-    void addUniformFloatKey(std::string variable_name, std::string key);
-    void addUniformVec2Key(std::string variable_name, std::string key);
-    void addUniformVec3Key(std::string variable_name, std::string key);
-    void addUniformVec4Key(std::string variable_name, std::string key);
-    void addUniformMat4Key(std::string variable_name, std::string key);
+    void addTextureKey(const std::string& variable_name, const std::string& key);
+    void addAttributeFloatKey(const std::string& variable_name, const std::string& key);
+    void addAttributeVec2Key(const std::string& variable_name, const std::string& key);
+    void addAttributeVec3Key(const std::string& variable_name, const std::string& key);
+    void addAttributeVec4Key(const std::string& variable_name, const std::string& key);
+    void addUniformFloatKey(const std::string& variable_name, const std::string& key);
+    void addUniformVec2Key(const std::string& variable_name, const std::string& key);
+    void addUniformVec3Key(const std::string& variable_name, const std::string& key);
+    void addUniformVec4Key(const std::string& variable_name, const std::string& key);
+    void addUniformMat4Key(const std::string& variable_name, const std::string& key);
     void render(const glm::mat4& mvp_matrix, RenderData* render_data, Material* material, bool right);
     static int getGLTexture(int n);
 
@@ -63,20 +63,47 @@ private:
     CustomShader& operator=(const CustomShader& custom_shader);
     CustomShader& operator=(CustomShader&& custom_shader);
 
+    void completeInitialization();
+
 private:
     GLProgram* program_;
     GLuint u_mvp_;
     GLuint u_right_;
-    std::map<int, std::string> texture_keys_;
-    std::map<int, std::string> attribute_float_keys_;
-    std::map<int, std::string> attribute_vec2_keys_;
-    std::map<int, std::string> attribute_vec3_keys_;
-    std::map<int, std::string> attribute_vec4_keys_;
-    std::map<int, std::string> uniform_float_keys_;
-    std::map<int, std::string> uniform_vec2_keys_;
-    std::map<int, std::string> uniform_vec3_keys_;
-    std::map<int, std::string> uniform_vec4_keys_;
-    std::map<int, std::string> uniform_mat4_keys_;
+
+    std::string vertexShader_, fragmentShader_;
+
+    struct VariableKeyPair {
+        explicit VariableKeyPair(const std::string& v, const std::string& k) {
+            variable = v;
+            key = k;
+        }
+        std::string variable;
+        std::string key;
+
+        bool operator<(const VariableKeyPair& vkp) const {
+            return variable < vkp.variable && key < vkp.key;
+        }
+    };
+
+    class VariableKeyPairComparator {
+       public:
+        bool operator()(const VariableKeyPair& x, const VariableKeyPair& y) {
+            return x < y;
+        }
+    };
+
+    bool texture_keys_dirty_ = false;
+    std::map<VariableKeyPair, int, VariableKeyPairComparator> texture_keys_;
+    bool attribute_float_dirty_ = false;
+    std::map<VariableKeyPair, int> attribute_float_keys_;
+    std::map<VariableKeyPair, int> attribute_vec2_keys_;
+    std::map<VariableKeyPair, int> attribute_vec3_keys_;
+    std::map<VariableKeyPair, int> attribute_vec4_keys_;
+    std::map<VariableKeyPair, int> uniform_float_keys_;
+    std::map<VariableKeyPair, int> uniform_vec2_keys_;
+    std::map<VariableKeyPair, int> uniform_vec3_keys_;
+    std::map<VariableKeyPair, int> uniform_vec4_keys_;
+    std::map<VariableKeyPair, int> uniform_mat4_keys_;
 };
 
 }

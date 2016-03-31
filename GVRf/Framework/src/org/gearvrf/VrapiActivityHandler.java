@@ -117,7 +117,8 @@ class VrapiActivityHandler implements ActivityHandler {
 
     @Override
     public boolean onBack() {
-        nativeShowConfirmQuit(mPtr);
+        //nativeShowConfirmQuit(mPtr);
+        mActivity.finish();
         return true;
     }
 

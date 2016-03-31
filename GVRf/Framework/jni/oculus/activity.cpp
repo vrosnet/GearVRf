@@ -93,7 +93,7 @@ void GVRActivity::showGlobalMenu() {
 
 void GVRActivity::showConfirmQuit() {
     LOGV("GVRActivity::showConfirmQuit");
-    SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_CONFIRM_QUIT, NULL);
+    //SystemActivities_StartSystemActivity(&oculusJavaMainThread_, PUI_CONFIRM_QUIT, NULL);
 }
 
 bool GVRActivity::updateSensoredScene() {
