@@ -20,8 +20,6 @@
 #include "custom_shader.h"
 
 #include "gl/gl_program.h"
-#include "objects/material.h"
-#include "objects/mesh.h"
 #include "objects/textures/texture.h"
 #include "objects/components/render_data.h"
 #include "util/gvr_gl.h"
@@ -32,7 +30,7 @@ namespace gvr {
 CustomShader::CustomShader(std::string vertex_shader,
         std::string fragment_shader) :
         program_(0), u_mvp_(0), u_right_(
-                0), texture_keys_(), attribute_float_keys_(), attribute_vec2_keys_(), attribute_vec3_keys_(), attribute_vec4_keys_(), uniform_float_keys_(), uniform_vec2_keys_(), uniform_vec3_keys_(), uniform_vec4_keys_(), uniform_mat4_keys_() {
+                0), texture_keys_(), attribute_variables_(), uniform_float_keys_(), uniform_vec2_keys_(), uniform_vec3_keys_(), uniform_vec4_keys_(), uniform_mat4_keys_() {
     program_ = new GLProgram(vertex_shader.c_str(), fragment_shader.c_str());
     u_mvp_ = glGetUniformLocation(program_->id(), "u_mvp");
     u_right_ = glGetUniformLocation(program_->id(), "u_right");
@@ -43,32 +41,70 @@ CustomShader::~CustomShader() {
 }
 
 void CustomShader::addTextureKey(std::string variable_name, std::string key) {
-    int location = glGetUniformLocation(program_->id(), variable_name.c_str());
-    texture_keys_[location] = key;
+    Descriptor<TextureVariable> d(variable_name, key);
+
+    d.variableType.f_location = [] (GLuint programId, const std::string& variable) {
+        return glGetUniformLocation(programId, variable.c_str());
+    };
+    d.location = d.variableType.f_location(program_->id(), d.variable);
+
+    d.variableType.f_update = [] (int& textureIndex, const Material& material, const std::string& variable, GLuint location) {
+        glActiveTexture(getGLTexture(textureIndex));
+        Texture* texture = material.getTexture(variable);
+        glBindTexture(texture->getTarget(), texture->getId());
+        glUniform1i(location, textureIndex++);
+    };
+
+    texture_keys_.insert(d);
 }
 
 void CustomShader::addAttributeFloatKey(std::string variable_name,
         std::string key) {
-    int location = glGetAttribLocation(program_->id(), variable_name.c_str());
-    attribute_float_keys_[location] = key;
+    AttributeVariableUpdater f =
+            [] (Mesh& mesh, const std::string& variable, GLuint location) {
+                mesh.setVertexAttribLocF(location, variable);
+            };
+    addAttributeKey(variable_name, key, f);
 }
 
 void CustomShader::addAttributeVec2Key(std::string variable_name,
         std::string key) {
-    int location = glGetAttribLocation(program_->id(), variable_name.c_str());
-    attribute_vec2_keys_[location] = key;
+    AttributeVariableUpdater f =
+            [] (Mesh& mesh, const std::string& variable, GLuint location) {
+                mesh.setVertexAttribLocV2(location, variable);
+            };
+    addAttributeKey(variable_name, key, f);
+}
+
+void CustomShader::addAttributeKey(std::string variable_name,
+        std::string key, AttributeVariableUpdater f) {
+    Descriptor<AttributeVariable> d(variable_name, key);
+
+    d.variableType.f_location = [] (GLuint programId, const std::string& variable) {
+        return glGetAttribLocation(programId, variable.c_str());
+    };
+    d.location = d.variableType.f_location(program_->id(), d.variable);
+    d.variableType.f_update = f;
+
+    attribute_variables_.insert(d);
 }
 
 void CustomShader::addAttributeVec3Key(std::string variable_name,
         std::string key) {
-    int location = glGetAttribLocation(program_->id(), variable_name.c_str());
-    attribute_vec3_keys_[location] = key;
+    AttributeVariableUpdater f =
+            [] (Mesh& mesh, const std::string& variable, GLuint location) {
+                mesh.setVertexAttribLocV3(location, variable);
+            };
+    addAttributeKey(variable_name, key, f);
 }
 
 void CustomShader::addAttributeVec4Key(std::string variable_name,
         std::string key) {
-    int location = glGetAttribLocation(program_->id(), variable_name.c_str());
-    attribute_vec4_keys_[location] = key;
+    AttributeVariableUpdater f =
+            [] (Mesh& mesh, const std::string& variable, GLuint location) {
+                mesh.setVertexAttribLocV4(location, variable);
+            };
+    addAttributeKey(variable_name, key, f);
 }
 
 void CustomShader::addUniformFloatKey(std::string variable_name,
@@ -104,7 +140,7 @@ void CustomShader::addUniformMat4Key(std::string variable_name,
 void CustomShader::render(const glm::mat4& mvp_matrix, RenderData* render_data,
         Material* material, bool right) {
     for (auto it = texture_keys_.begin(); it != texture_keys_.end(); ++it) {
-        Texture* texture = material->getTextureNoError(it->second);
+        Texture* texture = material->getTextureNoError((*it).variable);
         // If any texture is not ready, do not render the material at all
         if (texture == NULL || !texture->isReady()) {
             return;
@@ -116,26 +152,11 @@ void CustomShader::render(const glm::mat4& mvp_matrix, RenderData* render_data,
     glUseProgram(program_->id());
 
     if(mesh->isVaoDirty()) {
-		for (auto it = attribute_float_keys_.begin();
-				it != attribute_float_keys_.end(); ++it) {
-			mesh->setVertexAttribLocF(it->first, it->second);
-		}
-
-		for (auto it = attribute_vec2_keys_.begin();
-				it != attribute_vec2_keys_.end(); ++it) {
-			mesh->setVertexAttribLocV2(it->first, it->second);
-		}
-
-		for (auto it = attribute_vec3_keys_.begin();
-				it != attribute_vec3_keys_.end(); ++it) {
-			mesh->setVertexAttribLocV3(it->first, it->second);
-		}
-
-		for (auto it = attribute_vec4_keys_.begin();
-				it != attribute_vec4_keys_.end(); ++it) {
-			mesh->setVertexAttribLocV4(it->first, it->second);
-		}
-		mesh->unSetVaoDirty();
+        for (auto it = attribute_variables_.begin(); it != attribute_variables_.end(); ++it) {
+            auto d = *it;
+            d.variableType.f_update(*mesh, d.variable, d.location);
+        }
+        mesh->unSetVaoDirty();
     }
     mesh->generateVAO();  // setup VAO
 
@@ -154,10 +175,8 @@ void CustomShader::render(const glm::mat4& mvp_matrix, RenderData* render_data,
 
     int texture_index = 0;
     for (auto it = texture_keys_.begin(); it != texture_keys_.end(); ++it) {
-        glActiveTexture(getGLTexture(texture_index));
-        Texture* texture = material->getTexture(it->second);
-        glBindTexture(texture->getTarget(), texture->getId());
-        glUniform1i(it->first, texture_index++);
+        auto d = *it;
+        d.variableType.f_update(texture_index, *material, d.variable, d.location);
     }
 
     for (auto it = uniform_vec2_keys_.begin(); it != uniform_vec2_keys_.end();
