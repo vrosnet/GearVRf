@@ -41,8 +41,8 @@ namespace gvr {
 class GLProgram;
 class RenderData;
 
-typedef std::function<void(Mesh&, const std::string&, GLuint)> AttributeVariableBind;
-typedef std::function<void(Material&, const std::string&, GLuint)> UniformVariableBind;
+typedef std::function<void(Mesh&, GLuint)> AttributeVariableBind;
+typedef std::function<void(Material&, GLuint)> UniformVariableBind;
 
 class CustomShader: public HybridObject {
 public:
@@ -94,17 +94,17 @@ private:
     };
 
     struct TextureVariable {
-        std::function<int(GLuint, const std::string&)> f_getLocation;
-        std::function<void(int&, const Material&, const std::string&, GLuint)> f_bind;
+        std::function<int(GLuint)> f_getLocation;
+        std::function<void(int&, const Material&, GLuint)> f_bind;
     };
 
     struct AttributeVariable {
-        std::function<int(GLuint, const std::string&)> f_getLocation;
+        std::function<int(GLuint)> f_getLocation;
         AttributeVariableBind f_bind;
     };
 
     struct UniformVariable {
-        std::function<int(GLuint, const std::string&)> f_getLocation;
+        std::function<int(GLuint)> f_getLocation;
         UniformVariableBind f_bind;
     };
 
