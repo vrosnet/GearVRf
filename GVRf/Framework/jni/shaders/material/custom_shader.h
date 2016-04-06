@@ -25,6 +25,7 @@
 #include <set>
 #include <memory>
 #include <string>
+#include <mutex>
 
 #include "GLES3/gl3.h"
 #include "glm/glm.hpp"
@@ -113,10 +114,15 @@ private:
     GLuint u_right_;
 
     bool textureVariablesDirty_ = false;
+    std::mutex textureVariablesLock_;
     std::set<Descriptor<TextureVariable>, DescriptorComparator<TextureVariable>> textureVariables_;
+
     bool attributeVariablesDirty_ = false;
+    std::mutex attributeVariablesLock_;
     std::set<Descriptor<AttributeVariable>, DescriptorComparator<AttributeVariable>> attributeVariables_;
+
     bool uniformVariablesDirty_ = false;
+    std::mutex uniformVariablesLock_;
     std::set<Descriptor<UniformVariable>, DescriptorComparator<UniformVariable>> uniformVariables_;
 
     std::string vertexShader_;
