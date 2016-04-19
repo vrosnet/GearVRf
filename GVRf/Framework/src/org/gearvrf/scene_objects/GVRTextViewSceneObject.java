@@ -15,15 +15,14 @@
 
 package org.gearvrf.scene_objects;
 
+import java.lang.ref.WeakReference;
+
 import org.gearvrf.GVRActivity;
 import org.gearvrf.GVRContext;
 import org.gearvrf.GVRDrawFrameListener;
 import org.gearvrf.GVRExternalTexture;
 import org.gearvrf.GVRMaterial;
 import org.gearvrf.GVRMaterial.GVRShaderType;
-
-import java.lang.ref.WeakReference;
-
 import org.gearvrf.GVRSceneObject;
 import org.gearvrf.GVRTexture;
 
@@ -31,12 +30,12 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.SurfaceTexture;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
-
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -191,6 +190,11 @@ public class GVRTextViewSceneObject extends GVRSceneObject {
      */
     public void setTextSize(float size) {
         mTextView.setTextSize(size);
+        mIsChanged = true;
+    }
+
+    public void setTypeface(final Typeface tf) {
+        mTextView.setTypeface(tf);
         mIsChanged = true;
     }
 
