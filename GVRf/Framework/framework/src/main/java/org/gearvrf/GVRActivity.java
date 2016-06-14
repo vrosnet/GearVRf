@@ -26,12 +26,12 @@ import org.gearvrf.utility.GrowBeforeQueueThreadPoolExecutor;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.Threads;
 import org.gearvrf.utility.VrAppSettings;
-import org.joml.Vector2f;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.util.Size;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -96,7 +96,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        mAppSettings = new VrAppSettings();
+        mAppSettings = new VrAppSettings(this);
 
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
         mDockEventReceiver = new DockEventReceiver(this,
@@ -235,16 +235,15 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
     }
 
     public View getFullScreenView() {
-        if (mFullScreenView != null)
+        if (mFullScreenView != null) {
             return mFullScreenView;
-        VrapiActivityHandler handler = (VrapiActivityHandler) mActivityHandler;
-        if (handler != null) {
-            Vector2f dim = handler.getScreenDimensions();
-            ViewGroup.LayoutParams layout = new ViewGroup.LayoutParams((int) dim.x, (int) dim.y);
-            mFullScreenView = new View(this);
-            mFullScreenView.setLayoutParams(layout);
-            mRenderableViewGroup.addView(mFullScreenView);
         }
+
+        final Size screenDimensions = mAppSettings.getScreenDimensions();
+        ViewGroup.LayoutParams layout = new ViewGroup.LayoutParams(screenDimensions.getWidth(), screenDimensions.getHeight());
+        mFullScreenView = new View(this);
+        mFullScreenView.setLayoutParams(layout);
+        mRenderableViewGroup.addView(mFullScreenView);
         return mFullScreenView;
     }
 

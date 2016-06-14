@@ -15,6 +15,11 @@
 
 package org.gearvrf.utility;
 
+import android.util.DisplayMetrics;
+import android.util.Size;
+
+import org.gearvrf.GVRActivity;
+
 /**
  * A class that represents overall parameters that we can set with Oculus
  * library.
@@ -817,7 +822,7 @@ public class VrAppSettings {
         this.performanceParms = performanceParms;
     }
 
-    public VrAppSettings() {
+    public VrAppSettings(GVRActivity activity) {
         showLoadingIcon = true;
         useSrgbFramebuffer = false;
         useProtectedFramebuffer = false;
@@ -828,6 +833,12 @@ public class VrAppSettings {
         headModelParms = new HeadModelParms();
         monoScopicModeParms = new MonoScopicModeParms();
         performanceParms = new PerformanceParms();
+
+        final DisplayMetrics metrics = new DisplayMetrics();
+        activity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
+        final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
+        mScreenDimensions = new Size(screenWidthPixels, screenHeightPixels);
     }
 
     public String toString() {
@@ -844,4 +855,10 @@ public class VrAppSettings {
         res.append(performanceParms.toString());
         return res.toString();
     }
+
+    public Size getScreenDimensions() {
+        return mScreenDimensions;
+    }
+
+    private final Size mScreenDimensions;
 }

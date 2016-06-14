@@ -38,6 +38,7 @@ import android.opengl.GLSurfaceView.EGLWindowSurfaceFactory;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.HandlerThread;
 import android.util.DisplayMetrics;
+import android.util.Size;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 import android.view.SurfaceHolder;
@@ -163,19 +164,15 @@ class VrapiActivityHandler implements ActivityHandler {
 
         mActivity.setContentView(mSurfaceView);
 
-        final DisplayMetrics metrics = new DisplayMetrics();
-        mActivity.getWindowManager().getDefaultDisplay().getMetrics(metrics);
         final VrAppSettings appSettings = mActivity.getAppSettings();
-        final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
-        final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
         final int frameBufferWidth = appSettings.getFramebufferPixelsWide();
         final int frameBufferHeight = appSettings.getFramebufferPixelsHigh();
         final SurfaceHolder holder = mSurfaceView.getHolder();
         holder.setFormat(PixelFormat.TRANSLUCENT);
 
-        mScreenDimensions = new Vector2f(screenWidthPixels, screenHeightPixels);
+        final Size screenDimensions = appSettings.getScreenDimensions();
         if ((-1 != frameBufferHeight) && (-1 != frameBufferWidth)) {
-            if ((screenWidthPixels != frameBufferWidth) && (screenHeightPixels != frameBufferHeight)) {
+            if ((screenDimensions.getWidth() != frameBufferWidth) && (screenDimensions.getHeight() != frameBufferHeight)) {
                 Log.v(TAG, "--- window configuration ---");
                 Log.v(TAG, "--- width: %d", frameBufferWidth);
                 Log.v(TAG, "--- height: %d", frameBufferHeight);
@@ -184,10 +181,6 @@ class VrapiActivityHandler implements ActivityHandler {
                 Log.v(TAG, "----------------------------");
             }
         }
-    }
-
-    public Vector2f getScreenDimensions() {
-        return mScreenDimensions;
     }
 
     private final EGLContextFactory mContextFactory = new EGLContextFactory() {
