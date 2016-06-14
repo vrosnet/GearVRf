@@ -20,36 +20,36 @@ namespace gvr {
 
 extern "C" {
 
-JNIEXPORT long JNICALL Java_org_gearvrf_GVRActivityNative_onCreate(JNIEnv* jni, jclass clazz,
+JNIEXPORT long JNICALL Java_org_gearvrf_VrapiActivityHandlerNative_onCreate(JNIEnv* jni, jclass clazz,
         jobject activity, jobject vrAppSettings, jobject callbacks) {
     GVRActivity* gvrActivity = new GVRActivity(*jni, activity, vrAppSettings, callbacks);
     return reinterpret_cast<long>(gvrActivity);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandlerNative_onDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     delete activity;
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_setCamera(JNIEnv * jni, jclass clazz, jlong appPtr,
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandlerNative_setCamera(JNIEnv * jni, jclass clazz, jlong appPtr,
         jlong jcamera) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     Camera* camera = reinterpret_cast<Camera*>(jcamera);
     activity->camera = camera;
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_setCameraRig(JNIEnv * jni, jclass clazz, jlong appPtr,
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandlerNative_setCameraRig(JNIEnv * jni, jclass clazz, jlong appPtr,
         jlong cameraRig) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->setCameraRig(cameraRig);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onDock(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandlerNative_onDock(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onDock();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onUndock(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_VrapiActivityHandlerNative_onUndock(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onUndock();
 }

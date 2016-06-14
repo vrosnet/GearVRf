@@ -23,7 +23,7 @@
 #include "SystemActivities.h"
 
 static const char* activityClassName = "org/gearvrf/GVRActivity";
-static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/ActivityHandlerRenderingCallbacks";
+static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/VrapiRenderingCallbacks";
 
 namespace gvr {
 

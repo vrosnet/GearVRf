@@ -1,13 +1,17 @@
 package org.gearvrf;
 
-interface ActivityHandler {
+public interface ActivityHandler {
     public void onPause();
 
     public void onResume();
 
-    public void onSetScript();
+    public void onSetScript(GVRViewManager viewManager);
 
     public boolean onBack();
 
     public boolean onBackLongPress();
+
+    public ActivityHandlerNative getNative();
+
+    public boolean isMonoscopic();
 }

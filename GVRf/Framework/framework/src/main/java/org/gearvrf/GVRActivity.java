@@ -29,7 +29,6 @@ import org.gearvrf.utility.VrAppSettings;
 import org.joml.Vector2f;
 
 import android.app.Activity;
-import android.transition.Scene;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -72,7 +71,6 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
     // Group of views that are going to be drawn
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
-    private GVRActivityNative mActivityNative;
     private boolean mPaused = true;
 
     // Send to listeners and scripts but not this object itself
@@ -115,13 +113,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                 });
         mDockEventReceiver.start();
 
-        mActivityNative = GVRActivityNative.createObject(this, mAppSettings, mRenderingCallbacks);
-
-        try {
-            mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
-        } catch (final Exception ignored) {
-            // will fall back to mono rendering in that case
-        }
+        mActivityHandler = ActivityHandlerFactory.makeActivityHandler(this);
     }
 
     /**
@@ -153,9 +145,8 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
         if (null != mDockEventReceiver) {
             mDockEventReceiver.stop();
         }
-        if (null != mActivityHandler) {
-            mActivityHandler.onPause();
-        }
+
+        mActivityHandler.onPause();
         super.onPause();
     }
 
@@ -177,9 +168,8 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
         if (null != mDockEventReceiver) {
             mDockEventReceiver.start();
         }
-        if (null != mActivityHandler) {
-            mActivityHandler.onResume();
-        }
+
+        mActivityHandler.onResume();
     }
 
     @Override
@@ -194,7 +184,8 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     IActivityEvents.class,
                     "onDestroy");
         }
-        mActivityNative.onDestroy();
+
+        mActivityHandler.getNative().onDestroy();
         super.onDestroy();
     }
 
@@ -220,12 +211,10 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     dataFileName, mAppSettings);
             onInitAppSettings(mAppSettings);
-            if (null != mActivityHandler && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
+            if (!mActivityHandler.isMonoscopic() && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
                 mViewManager = new GVRViewManager(this, gvrScript, xmlParser);
             } else {
-                mActivityHandler = null;    //oculus support not requested
-                mViewManager = new GVRMonoscopicViewManager(this, gvrScript,
-                        xmlParser);
+                mViewManager = new GVRMonoscopicViewManager(this, gvrScript, xmlParser);
             }
 
             if (gvrScript instanceof GVRMain) {
@@ -238,19 +227,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     IActivityEvents.class,
                     "onSetScript", gvrScript);
 
-            if (null != mActivityHandler) {
-                mViewManager.registerDrawFrameListener(new GVRDrawFrameListener() {
-                    @Override
-                    public void onDrawFrame(float frameTime) {
-                        if (GVRConfigurationManager.getInstance().isHmtConnected()) {
-                            handleOnDock();
-                            mViewManager.unregisterDrawFrameListener(this);
-                        }
-                    }
-                });
-
-                mActivityHandler.onSetScript();
-            }
+            mActivityHandler.onSetScript(mViewManager);
         } else {
             throw new IllegalArgumentException(
                     "You can not set orientation to portrait for GVRF apps.");
@@ -336,20 +313,23 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
         return mAppSettings.monoScopicModeParms.isMonoScopicMode();
     }
 
+    /**
+     * @deprecated
+     */
     public long getNative() {
-        return mActivityNative.getNative();
+        return mActivityHandler.getNative().getPtr();
     }
 
-    void oneTimeShutDown() {
-        Log.e(TAG, " oneTimeShutDown from native layer");
-    }
-
+    /**
+     * @deprecated
+     * @param camera
+     */
     void setCamera(GVRCamera camera) {
-        mActivityNative.setCamera(camera);
+        mActivityHandler.getNative().setCamera(camera);
     }
 
     void setCameraRig(GVRCameraRig cameraRig) {
-        mActivityNative.setCameraRig(cameraRig);
+        mActivityHandler.getNative().setCameraRig(cameraRig);
     }
 
     @Override
@@ -504,7 +484,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
 
     private boolean mIsDocked = false;
 
-    private void handleOnDock() {
+    void handleOnDock() {
         Log.i(TAG, "handleOnDock");
         final Runnable r = new Runnable() {
             @Override
@@ -512,10 +492,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                 if (!mIsDocked) {
                     mIsDocked = true;
 
-                    if (null != mActivityNative) {
-                        mActivityNative.onDock();
-                    }
-
+                    mActivityHandler.getNative().onDock();
                     for (final DockListener dl : mDockListeners) {
                         dl.onDock();
                     }
@@ -525,7 +502,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
         runOnUiThread(r);
     }
 
-    private void handleOnUndock() {
+    void handleOnUndock() {
         Log.i(TAG, "handleOnUndock");
         final Runnable r = new Runnable() {
             @Override
@@ -533,10 +510,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                 if (mIsDocked) {
                     mIsDocked = false;
 
-                    if (null != mActivityNative) {
-                        mActivityNative.onUndock();
-                    }
-
+                    mActivityHandler.getNative().onUndock();
                     for (final DockListener dl : mDockListeners) {
                         dl.onUndock();
                     }
@@ -559,37 +533,6 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
 
     private DockEventReceiver mDockEventReceiver;
 
-    private final ActivityHandlerRenderingCallbacks mRenderingCallbacks = new ActivityHandlerRenderingCallbacks() {
-        @Override
-        public void onSurfaceCreated() {
-            mViewManager.onSurfaceCreated();
-        }
-
-        @Override
-        public void onSurfaceChanged(int width, int height) {
-            mViewManager.onSurfaceChanged(width, height);
-        }
-
-        @Override
-        public void onBeforeDrawEyes() {
-            mViewManager.beforeDrawEyes();
-            mViewManager.onDrawFrame();
-        }
-
-        @Override
-        public void onAfterDrawEyes() {
-            mViewManager.afterDrawEyes();
-        }
-
-        @Override
-        public void onDrawEye(int eye) {
-            try {
-                mViewManager.onDrawEyeView(eye);
-            } catch (final Exception e) {
-                Log.e(TAG, "error in onDrawEyeView", e);
-            }
-        }
-    };
     private ActivityHandler mActivityHandler;
 
 }

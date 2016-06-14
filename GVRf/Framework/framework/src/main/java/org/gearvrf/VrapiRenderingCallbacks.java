@@ -1,6 +1,6 @@
 package org.gearvrf;
 
-interface ActivityHandlerRenderingCallbacks {
+interface VrapiRenderingCallbacks {
     public void onSurfaceCreated();
 
     public void onSurfaceChanged(int width, int height);

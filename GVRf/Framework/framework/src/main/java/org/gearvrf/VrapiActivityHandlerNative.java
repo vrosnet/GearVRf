@@ -19,7 +19,7 @@ import org.gearvrf.utility.VrAppSettings;
 
 import android.app.Activity;
 
-final class GVRActivityNative {
+final class VrapiActivityHandlerNative implements ActivityHandlerNative {
 
     static {
         System.loadLibrary("gvrf");
@@ -27,36 +27,42 @@ final class GVRActivityNative {
 
     private long mPtr;
 
-    static GVRActivityNative createObject(Activity act, VrAppSettings vrAppSettings,
-            ActivityHandlerRenderingCallbacks callbacks) {
-        return new GVRActivityNative(act, vrAppSettings, callbacks);
+    static VrapiActivityHandlerNative createObject(Activity act, VrAppSettings vrAppSettings,
+                                                   VrapiRenderingCallbacks callbacks) {
+        return new VrapiActivityHandlerNative(act, vrAppSettings, callbacks);
     }
 
-    private GVRActivityNative(Activity act, VrAppSettings vrAppSettings, ActivityHandlerRenderingCallbacks callbacks) {
+    private VrapiActivityHandlerNative(Activity act, VrAppSettings vrAppSettings, VrapiRenderingCallbacks callbacks) {
         mPtr = onCreate(act, vrAppSettings, callbacks);
     }
 
-    void onDestroy() {
+    @Override
+    public void onDestroy() {
         onDestroy(mPtr);
     }
 
-    void setCamera(GVRCamera camera) {
+    @Override
+    public void setCamera(GVRCamera camera) {
         setCamera(mPtr, camera.getNative());
     }
 
-    void setCameraRig(GVRCameraRig cameraRig) {
+    @Override
+    public void setCameraRig(GVRCameraRig cameraRig) {
         setCameraRig(mPtr, cameraRig.getNative());
     }
 
-    void onUndock() {
+    @Override
+    public void onUndock() {
         onUndock(mPtr);
     }
 
-    void onDock() {
+    @Override
+    public void onDock() {
         onDock(mPtr);
     }
 
-    long getNative() {
+    @Override
+    public long getPtr() {
         return mPtr;
     }
 
@@ -70,6 +76,6 @@ final class GVRActivityNative {
 
     private static native void onDestroy(long appPtr);
 
-    private static native long onCreate(Activity act, VrAppSettings vrAppSettings, ActivityHandlerRenderingCallbacks callbacks);
+    private static native long onCreate(Activity act, VrAppSettings vrAppSettings, VrapiRenderingCallbacks callbacks);
 
 }

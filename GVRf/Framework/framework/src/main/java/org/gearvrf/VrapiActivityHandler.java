@@ -48,26 +48,25 @@ import android.view.SurfaceHolder;
 class VrapiActivityHandler implements ActivityHandler {
 
     private final GVRActivity mActivity;
-    private long mPtr;
+    private VrapiActivityHandlerNative mNative;
     private GLSurfaceView mSurfaceView;
-    private final ActivityHandlerRenderingCallbacks mCallbacks;
     private EGLSurface mPixelBuffer;
     private EGLSurface mMainSurface;
     boolean mVrApiInitialized;
-    private Vector2f mScreenDimensions = null;
+    private Vector2f mScreenDimensions;
+    private GVRViewManager mViewManager;
 
-    VrapiActivityHandler(final GVRActivity activity,
-            final ActivityHandlerRenderingCallbacks callbacks) throws VrapiNotAvailableException {
-        if (null == callbacks || null == activity) {
+    public VrapiActivityHandler(final GVRActivity activity) throws VrapiNotAvailableException {
+        if (null == activity) {
             throw new IllegalArgumentException();
         }
         mActivity = activity;
-        mCallbacks = callbacks;
-        mPtr = activity.getNative();
 
-        if (VRAPI_INITIALIZE_UNKNOWN_ERROR == nativeInitializeVrApi(mPtr)) {
+        mNative = VrapiActivityHandlerNative.createObject(activity, activity.getAppSettings(), mCallbacks);
+        if (VRAPI_INITIALIZE_UNKNOWN_ERROR == nativeInitializeVrApi(mNative.getPtr())) {
             throw new VrapiNotAvailableException();
         }
+
         mVrApiInitialized = true;
     }
 
@@ -83,7 +82,7 @@ class VrapiActivityHandler implements ActivityHandler {
                 @Override
                 public void run() {
                     //these two must happen on the gl thread
-                    nativeLeaveVrMode(mPtr);
+                    nativeLeaveVrMode(mNative.getPtr());
                     destroySurfaceForTimeWarp();
                     cdl.countDown();
                 }
@@ -99,7 +98,7 @@ class VrapiActivityHandler implements ActivityHandler {
                 } catch (final InterruptedException ignored) {
                 }
             }
-            nativeUninitializeVrApi(mPtr);
+            nativeUninitializeVrApi(mNative.getPtr());
             mVrApiInitialized = false;
         }
     }
@@ -107,7 +106,7 @@ class VrapiActivityHandler implements ActivityHandler {
     @Override
     public void onResume() {
         if (!mVrApiInitialized) {
-            nativeInitializeVrApi(mPtr);
+            nativeInitializeVrApi(mNative.getPtr());
             mVrApiInitialized = true;
         }
 
@@ -119,18 +118,39 @@ class VrapiActivityHandler implements ActivityHandler {
 
     @Override
     public boolean onBack() {
-        nativeShowConfirmQuit(mPtr);
+        nativeShowConfirmQuit(mNative.getPtr());
         return true;
     }
 
     @Override
     public boolean onBackLongPress() {
-        nativeShowGlobalMenu(mPtr);
+        nativeShowGlobalMenu(mNative.getPtr());
         return true;
     }
 
     @Override
-    public void onSetScript() {
+    public ActivityHandlerNative getNative() {
+        return mNative;
+    }
+
+    @Override
+    public boolean isMonoscopic() {
+        return false;
+    }
+
+    @Override
+    public void onSetScript(final GVRViewManager viewManager) {
+        mViewManager = viewManager;
+        mViewManager.registerDrawFrameListener(new GVRDrawFrameListener() {
+            @Override
+            public void onDrawFrame(float frameTime) {
+                if (GVRConfigurationManager.getInstance().isHmtConnected()) {
+                    mActivity.handleOnDock();
+                    mViewManager.unregisterDrawFrameListener(this);
+                }
+            }
+        });
+
         mSurfaceView = new GLSurfaceView(mActivity);
 
         mSurfaceView.setPreserveEGLContextOnPause(true);
@@ -343,7 +363,7 @@ class VrapiActivityHandler implements ActivityHandler {
             Log.i(TAG, "onSurfaceCreated");
 
             mConfig = config;
-            nativeOnSurfaceCreated(mPtr);
+            nativeOnSurfaceCreated(mNative.getPtr());
             mCallbacks.onSurfaceCreated();
         }
 
@@ -398,7 +418,7 @@ class VrapiActivityHandler implements ActivityHandler {
                 throw new IllegalStateException(
                         "eglMakeCurrent() failed: 0x " + Integer.toHexString(egl.eglGetError()));
             }
-            nativeOnSurfaceChanged(mPtr);
+            nativeOnSurfaceChanged(mNative.getPtr());
 
             // necessary to explicitly make the pbuffer current for the rendering thread;
             // TimeWarp took over the window surface
@@ -414,11 +434,42 @@ class VrapiActivityHandler implements ActivityHandler {
         @Override
         public void onDrawFrame(final GL10 gl) {
             mCallbacks.onBeforeDrawEyes();
-            nativeOnDrawFrame(mPtr);
+            nativeOnDrawFrame(mNative.getPtr());
             mCallbacks.onAfterDrawEyes();
         }
     };
 
+    private final VrapiRenderingCallbacks mCallbacks = new VrapiRenderingCallbacks() {
+        @Override
+        public void onSurfaceCreated() {
+            mViewManager.onSurfaceCreated();
+        }
+
+        @Override
+        public void onSurfaceChanged(int width, int height) {
+            mViewManager.onSurfaceChanged(width, height);
+        }
+
+        @Override
+        public void onBeforeDrawEyes() {
+            mViewManager.beforeDrawEyes();
+            mViewManager.onDrawFrame();
+        }
+
+        @Override
+        public void onAfterDrawEyes() {
+            mViewManager.afterDrawEyes();
+        }
+
+        @Override
+        public void onDrawEye(int eye) {
+            try {
+                mViewManager.onDrawEyeView(eye);
+            } catch (final Exception e) {
+                Log.e(TAG, "error in onDrawEyeView", e);
+            }
+        }
+    };
 
     @SuppressWarnings("serial")
     static final class VrapiNotAvailableException extends Exception {
