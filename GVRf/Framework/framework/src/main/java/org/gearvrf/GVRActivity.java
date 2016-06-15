@@ -31,7 +31,6 @@ import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.util.Size;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -211,7 +210,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     dataFileName, mAppSettings);
             onInitAppSettings(mAppSettings);
-            if (!mActivityHandler.isMonoscopic() && !mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
+            if (!mActivityHandler.isMonoscopic() && !mAppSettings.getMonoscopicModeParams().isMonoScopicMode()) {
                 mViewManager = new GVRViewManager(this, gvrScript, xmlParser);
             } else {
                 mViewManager = new GVRMonoscopicViewManager(this, gvrScript, xmlParser);
@@ -239,8 +238,8 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
             return mFullScreenView;
         }
 
-        final Size screenDimensions = mAppSettings.getScreenDimensions();
-        ViewGroup.LayoutParams layout = new ViewGroup.LayoutParams(screenDimensions.getWidth(), screenDimensions.getHeight());
+        final VrAppSettings.Size screenDimensions = mAppSettings.getScreenDimensions();
+        ViewGroup.LayoutParams layout = new ViewGroup.LayoutParams(screenDimensions.width, screenDimensions.height);
         mFullScreenView = new View(this);
         mFullScreenView.setLayoutParams(layout);
         mRenderableViewGroup.addView(mFullScreenView);
@@ -297,7 +296,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
      */
     @Deprecated
     public void setForceMonoscopic(boolean force) {
-        mAppSettings.monoScopicModeParms.setMonoScopicMode(force);
+        mAppSettings.monoscopicModeParams.setMonoscopicMode(force);
     }
 
     /**
@@ -309,7 +308,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
      */
     @Deprecated
     public boolean getForceMonoscopic() {
-        return mAppSettings.monoScopicModeParms.isMonoScopicMode();
+        return mAppSettings.monoscopicModeParams.isMonoScopicMode();
     }
 
     /**

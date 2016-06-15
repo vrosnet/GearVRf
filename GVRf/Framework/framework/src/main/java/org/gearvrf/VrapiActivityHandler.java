@@ -37,8 +37,6 @@ import android.opengl.GLSurfaceView.EGLContextFactory;
 import android.opengl.GLSurfaceView.EGLWindowSurfaceFactory;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.HandlerThread;
-import android.util.DisplayMetrics;
-import android.util.Size;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 import android.view.SurfaceHolder;
@@ -170,9 +168,9 @@ class VrapiActivityHandler implements ActivityHandler {
         final SurfaceHolder holder = mSurfaceView.getHolder();
         holder.setFormat(PixelFormat.TRANSLUCENT);
 
-        final Size screenDimensions = appSettings.getScreenDimensions();
+        final VrAppSettings.Size screenDimensions = appSettings.getScreenDimensions();
         if ((-1 != frameBufferHeight) && (-1 != frameBufferWidth)) {
-            if ((screenDimensions.getWidth() != frameBufferWidth) && (screenDimensions.getHeight() != frameBufferHeight)) {
+            if ((screenDimensions.width != frameBufferWidth) && (screenDimensions.height != frameBufferHeight)) {
                 Log.v(TAG, "--- window configuration ---");
                 Log.v(TAG, "--- width: %d", frameBufferWidth);
                 Log.v(TAG, "--- height: %d", frameBufferHeight);
