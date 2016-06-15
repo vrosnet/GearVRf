@@ -1,5 +1,7 @@
 package org.gearvrf;
 
+import android.view.KeyEvent;
+
 public interface ActivityHandler {
     public void onPause();
 
@@ -7,7 +9,7 @@ public interface ActivityHandler {
 
     public void onSetScript(GVRViewManager viewManager);
 
-    public boolean onBack();
+    public boolean onKeyUp(int keyCode, KeyEvent event);
 
     public boolean onBackLongPress();
 

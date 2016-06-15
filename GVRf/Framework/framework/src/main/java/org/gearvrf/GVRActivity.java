@@ -98,7 +98,11 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
         mAppSettings = new VrAppSettings(this);
 
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
-        mDockEventReceiver = new DockEventReceiver(this,
+        mActivityHandler = ActivityHandlerFactory.makeActivityHandler(this);
+    }
+
+    private void startDockEventReceiver() {
+        mDockEventReceiver = GVRConfigurationManager.getInstance().makeDockEventReceiver(this,
                 new Runnable() {
                     @Override
                     public void run() {
@@ -110,9 +114,18 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                         handleOnUndock();
                     }
                 });
-        mDockEventReceiver.start();
+        if (null != mDockEventReceiver) {
+            mDockEventReceiver.start();
+        }
+    }
 
-        mActivityHandler = ActivityHandlerFactory.makeActivityHandler(this);
+    private void onConfigure(){
+        onInitAppSettings(mAppSettings);
+
+        GVRConfigurationManager.onInitialize(this);
+        GVRConfigurationManager.getInstance().invalidate();
+
+        startDockEventReceiver();
     }
 
     /**
@@ -120,7 +133,6 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
      * </p>
      */
     protected void onInitAppSettings(VrAppSettings appSettings) {
-        GVRConfigurationManager.onInitialize(this);
     }
 
     public VrAppSettings getAppSettings() {
@@ -140,9 +152,6 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     this,
                     IActivityEvents.class,
                     "onPause");
-        }
-        if (null != mDockEventReceiver) {
-            mDockEventReceiver.stop();
         }
 
         mActivityHandler.onPause();
@@ -164,9 +173,6 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     IActivityEvents.class,
                     "onResume");
         }
-        if (null != mDockEventReceiver) {
-            mDockEventReceiver.start();
-        }
 
         mActivityHandler.onResume();
     }
@@ -174,6 +180,10 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
     @Override
     protected void onDestroy() {
         android.util.Log.i(TAG, "onDestroy " + Integer.toHexString(hashCode()));
+
+        if (null != mDockEventReceiver) {
+            mDockEventReceiver.stop();
+        }
         if (mViewManager != null) {
             mViewManager.onDestroy();
 
@@ -206,11 +216,19 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
     public void setScript(GVRScript gvrScript, String dataFileName) {
         this.mGVRScript = gvrScript;
         if (getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
+            if (Configuration.ORIENTATION_PORTRAIT == getResources().getConfiguration().orientation) {
+                Log.w(TAG, "display in portrait, short-circuiting this activity and waiting for the switch to landscape");
+                return;
+            }
 
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     dataFileName, mAppSettings);
-            onInitAppSettings(mAppSettings);
-            if (!mActivityHandler.isMonoscopic() && !mAppSettings.getMonoscopicModeParams().isMonoScopicMode()) {
+            onConfigure();
+            if (!GVRConfigurationManager.getInstance().isVrSupported()) {//@todo isvrsupported
+                // fall back to Monoscopic with flag forcing too
+                mAppSettings.getMonoscopicModeParams().setMonoscopicMode(true);
+            }
+            if (!mActivityHandler.isMonoscopic() && !mAppSettings.getMonoscopicModeParams().isMonoscopicMode()) {
                 mViewManager = new GVRViewManager(this, gvrScript, xmlParser);
             } else {
                 mViewManager = new GVRMonoscopicViewManager(this, gvrScript, xmlParser);
@@ -226,6 +244,15 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     IActivityEvents.class,
                     "onSetScript", gvrScript);
 
+            mViewManager.registerDrawFrameListener(new GVRDrawFrameListener() {
+                @Override
+                public void onDrawFrame(float frameTime) {
+                    if (GVRConfigurationManager.getInstance().isHmtConnected()) {
+                        handleOnDock();
+                        mViewManager.unregisterDrawFrameListener(this);
+                    }
+                }
+            });
             mActivityHandler.onSetScript(mViewManager);
         } else {
             throw new IllegalArgumentException(
@@ -297,6 +324,17 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
     @Deprecated
     public void setForceMonoscopic(boolean force) {
         mAppSettings.monoscopicModeParams.setMonoscopicMode(force);
+//@todo
+    /**
+     * Sets whether to force rendering to be single-eye, monoscopic view.
+     * 
+     * @param force
+     *            If true, switch the current ViewManager to monoscopic rendering
+     *            mode. If false, will switch back to normal stereoscopic rendering
+     *            mode. Used by app to switch between monoscopic and stereoscopic
+     *            mode on the fly
+     */
+        mViewManager.switchMonoscopicMode(force);
     }
 
     /**
@@ -308,7 +346,7 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
      */
     @Deprecated
     public boolean getForceMonoscopic() {
-        return mAppSettings.monoscopicModeParams.isMonoScopicMode();
+        return mAppSettings.monoscopicModeParams.isMonoscopicMode();
     }
 
     /**
@@ -395,6 +433,13 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (Configuration.ORIENTATION_LANDSCAPE == newConfig.orientation) {
+            Log.w(TAG, "back to landscape orientation, restarting activity");
+            finish();
+            startActivity(getIntent());
+        }
+
         if (mViewManager != null) {
             mViewManager.getEventManager().sendEventWithMask(
                     SEND_EVENT_MASK,
@@ -402,8 +447,6 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     IActivityEvents.class,
                     "onConfigurationChanged", newConfig);
         }
-
-        super.onConfigurationChanged(newConfig);
     }
 
     @Override
@@ -491,6 +534,9 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     mIsDocked = true;
 
                     mActivityHandler.getNative().onDock();
+                    if (null != mViewManager) {
+                        mViewManager.onDock();
+                    }
                     for (final DockListener dl : mDockListeners) {
                         dl.onDock();
                     }
@@ -509,6 +555,9 @@ public class GVRActivity extends Activity implements IEventReceiver, IScriptable
                     mIsDocked = false;
 
                     mActivityHandler.getNative().onUndock();
+                    if (null != mViewManager) {
+                        mViewManager.onUndock();
+                    }
                     for (final DockListener dl : mDockListeners) {
                         dl.onUndock();
                     }

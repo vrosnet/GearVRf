@@ -15,20 +15,6 @@
 
 package org.gearvrf;
 
-import java.util.Arrays;
-import java.util.concurrent.CountDownLatch;
-
-import javax.microedition.khronos.egl.EGL10;
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.egl.EGLContext;
-import javax.microedition.khronos.egl.EGLDisplay;
-import javax.microedition.khronos.egl.EGLSurface;
-import javax.microedition.khronos.opengles.GL10;
-
-import org.gearvrf.utility.Log;
-import org.gearvrf.utility.VrAppSettings;
-import org.joml.Vector2f;
-
 import android.graphics.PixelFormat;
 import android.opengl.EGL14;
 import android.opengl.GLSurfaceView;
@@ -39,7 +25,22 @@ import android.opengl.GLSurfaceView.Renderer;
 import android.os.HandlerThread;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
+import android.view.KeyEvent;
 import android.view.SurfaceHolder;
+
+import org.gearvrf.utility.Log;
+import org.gearvrf.utility.VrAppSettings;
+import org.joml.Vector2f;
+
+import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+
+import javax.microedition.khronos.egl.EGL10;
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.egl.EGLContext;
+import javax.microedition.khronos.egl.EGLDisplay;
+import javax.microedition.khronos.egl.EGLSurface;
+import javax.microedition.khronos.opengles.GL10;
 
 /**
  * Keep Oculus-specifics here
@@ -116,9 +117,12 @@ class VrapiActivityHandler implements ActivityHandler {
     }
 
     @Override
-    public boolean onBack() {
-        nativeShowConfirmQuit(mNative.getPtr());
-        return true;
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (KeyEvent.KEYCODE_BACK == keyCode) {
+            nativeShowConfirmQuit(mNative.getPtr());
+            return true;
+        }
+        return false;
     }
 
     @Override
