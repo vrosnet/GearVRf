@@ -235,7 +235,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
                     IActivityEvents.class,
                     "onSetScript", gvrScript);
 
-            if (null != mDockEventReceiver) {
+            if (null != mDockEventReceiver && !mAppSettings.getMonoscopicModeParams().isMonoscopicMode()) {
                 getGVRContext().registerDrawFrameListener(new GVRDrawFrameListener() {
                     @Override
                     public void onDrawFrame(float frameTime) {
