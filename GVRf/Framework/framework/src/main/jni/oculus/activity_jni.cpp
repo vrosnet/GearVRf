@@ -26,30 +26,30 @@ JNIEXPORT long JNICALL Java_org_gearvrf_GVRActivityNative_onCreate(JNIEnv* jni, 
     return reinterpret_cast<long>(gvrActivity);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityBaseNative_onDestroy(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     delete activity;
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_setCamera(JNIEnv * jni, jclass clazz, jlong appPtr,
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityBaseNative_setCamera(JNIEnv * jni, jclass clazz, jlong appPtr,
         jlong jcamera) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     Camera* camera = reinterpret_cast<Camera*>(jcamera);
     activity->camera = camera;
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_setCameraRig(JNIEnv * jni, jclass clazz, jlong appPtr,
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityBaseNative_setCameraRig(JNIEnv * jni, jclass clazz, jlong appPtr,
         jlong cameraRig) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->setCameraRig(cameraRig);
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onDock(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityBaseNative_onDock(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onDock();
 }
 
-JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityNative_onUndock(JNIEnv * jni, jclass clazz, jlong appPtr) {
+JNIEXPORT void JNICALL Java_org_gearvrf_GVRActivityBaseNative_onUndock(JNIEnv * jni, jclass clazz, jlong appPtr) {
     GVRActivity *activity = reinterpret_cast<GVRActivity*>(appPtr);
     activity->headRotationProvider_.onUndock();
 }
