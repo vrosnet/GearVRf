@@ -15,11 +15,7 @@
 
 package org.gearvrf;
 
-import org.gearvrf.utility.VrAppSettings;
-
-import android.app.Activity;
-
-class GVRActivityBaseNative {
+abstract class GVRActivityBaseNative {
 
     static {
         System.loadLibrary("gvrf");

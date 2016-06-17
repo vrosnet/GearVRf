@@ -78,16 +78,6 @@ public class GVRActivity extends GVRActivityBase {
         super.setScript(gvrScript, dataFileName);
 
         if (null != mActivityHandler) {
-            getGVRContext().registerDrawFrameListener(new GVRDrawFrameListener() {
-                @Override
-                public void onDrawFrame(float frameTime) {
-                    if (GVRConfigurationManager.getInstance().isHmtConnected()) {
-                        handleOnDock();
-                        getGVRContext().unregisterDrawFrameListener(this);
-                    }
-                }
-            });
-
             mActivityHandler.onSetScript();
         }
     }

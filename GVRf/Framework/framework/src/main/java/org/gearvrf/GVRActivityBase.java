@@ -70,7 +70,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
     // Group of views that are going to be drawn
     // by some GVRViewSceneObject to the scene.
     private ViewGroup mRenderableViewGroup = null;
-    private GVRActivityBaseNative mActivityNative;
+    private GVRActivityNative mActivityNative;
     private boolean mPaused = true;
 
     // Send to listeners and scripts but not this object itself
@@ -116,16 +116,20 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         mActivityNative = makeActivityNative();
     }
 
-    protected abstract GVRActivityBaseNative makeActivityNative();
+    protected abstract GVRActivityNative makeActivityNative();
     protected abstract GVRViewManager makeViewManager(GVRXMLParser xmlParser);
     protected abstract GVRMonoscopicViewManager makeMonoscopicViewManager(GVRXMLParser xmlParser);
 
-    /**
-     * <em>Derived classes must call through to the super class's implementation of this method.</em>
-     * </p>
-     */
     protected void onInitAppSettings(VrAppSettings appSettings) {
+    }
+
+    private void onConfigure(){
+        onInitAppSettings(mAppSettings);
+
         GVRConfigurationManager.onInitialize(this);
+        GVRConfigurationManager.getInstance().invalidate();
+
+        startDockEventReceiver();
     }
 
     public VrAppSettings getAppSettings() {
@@ -154,9 +158,6 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
                     IActivityEvents.class,
                     "onPause");
         }
-        if (null != mDockEventReceiver) {
-            mDockEventReceiver.stop();
-        }
         super.onPause();
     }
 
@@ -175,9 +176,6 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
                     IActivityEvents.class,
                     "onResume");
         }
-        if (null != mDockEventReceiver) {
-            mDockEventReceiver.start();
-        }
     }
 
     @Override
@@ -191,6 +189,9 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
                     this,
                     IActivityEvents.class,
                     "onDestroy");
+        }
+        if (null != mDockEventReceiver) {
+            mDockEventReceiver.stop();
         }
         mActivityNative.onDestroy();
         super.onDestroy();
@@ -217,7 +218,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
 
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     dataFileName, mAppSettings);
-            onInitAppSettings(mAppSettings);
+            onConfigure();
             if (!mAppSettings.getMonoscopicModeParams().isMonoscopicMode()) {
                 mViewManager = makeViewManager(xmlParser);
             } else {
@@ -233,6 +234,18 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
                     this,
                     IActivityEvents.class,
                     "onSetScript", gvrScript);
+
+            if (null != mDockEventReceiver) {
+                getGVRContext().registerDrawFrameListener(new GVRDrawFrameListener() {
+                    @Override
+                    public void onDrawFrame(float frameTime) {
+                        if (GVRConfigurationManager.getInstance().isHmtConnected()) {
+                            handleOnDock();
+                            getGVRContext().unregisterDrawFrameListener(this);
+                        }
+                    }
+                });
+            }
         } else {
             throw new IllegalArgumentException(
                     "You can not set orientation to portrait for GVRF apps.");
@@ -321,6 +334,10 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
 
     public long getNative() {
         return mActivityNative.getNative();
+    }
+
+    public GVRActivityNative getActivityNative() {
+        return mActivityNative;
     }
 
     void oneTimeShutDown() {
@@ -521,5 +538,23 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
     }
 
     private DockEventReceiver mDockEventReceiver;
+
+    private void startDockEventReceiver() {
+        mDockEventReceiver = GVRConfigurationManager.getInstance().makeDockEventReceiver(this,
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        handleOnDock();
+                    }
+                }, new Runnable() {
+                    @Override
+                    public void run() {
+                        handleOnUndock();
+                    }
+                });
+        if (null != mDockEventReceiver) {
+            mDockEventReceiver.start();
+        }
+    }
 
 }

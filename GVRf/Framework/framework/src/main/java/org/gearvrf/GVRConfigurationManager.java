@@ -15,6 +15,11 @@
 
 package org.gearvrf;
 
+import android.app.Activity;
+
+import org.gearvrf.utility.DockEventReceiver;
+import org.gearvrf.utility.VrAppSettings;
+
 import java.lang.ref.WeakReference;
 
 final class GVRConfigurationManager {
@@ -52,4 +57,12 @@ final class GVRConfigurationManager {
     }
 
     private static native boolean nativeIsHmtConnected(long ptr);
+
+    public void invalidate() {
+    }
+
+    DockEventReceiver makeDockEventReceiver(final Activity gvrActivity, final Runnable runOnDock,
+                                            final Runnable runOnUndock) {
+        return new DockEventReceiver(gvrActivity, runOnDock, runOnUndock);
+    }
 }
