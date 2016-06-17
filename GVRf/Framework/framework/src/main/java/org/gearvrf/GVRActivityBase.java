@@ -26,10 +26,8 @@ import org.gearvrf.utility.GrowBeforeQueueThreadPoolExecutor;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.Threads;
 import org.gearvrf.utility.VrAppSettings;
-import org.joml.Vector2f;
 
 import android.app.Activity;
-import android.transition.Scene;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -220,7 +218,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     dataFileName, mAppSettings);
             onInitAppSettings(mAppSettings);
-            if (!mAppSettings.getMonoScopicModeParms().isMonoScopicMode()) {
+            if (!mAppSettings.getMonoscopicModeParams().isMonoscopicMode()) {
                 mViewManager = makeViewManager(xmlParser);
             } else {
                 mViewManager = makeMonoscopicViewManager(xmlParser);
@@ -306,7 +304,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      */
     @Deprecated
     public void setForceMonoscopic(boolean force) {
-        mAppSettings.monoScopicModeParms.setMonoScopicMode(force);
+        mAppSettings.monoscopicModeParams.setMonoscopicMode(force);
     }
 
     /**
@@ -318,7 +316,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      */
     @Deprecated
     public boolean getForceMonoscopic() {
-        return mAppSettings.monoScopicModeParms.isMonoScopicMode();
+        return mAppSettings.monoscopicModeParams.isMonoscopicMode();
     }
 
     public long getNative() {

@@ -197,7 +197,7 @@ class GVRViewManager extends GVRContext implements RotationSensorListener {
         mLensInfo = new GVRLensInfo(screenWidthPixels, screenHeightPixels, screenWidthMeters, screenHeightMeters,
                 vrAppSettings);
 
-        GVRPerspectiveCamera.setDefaultFovY(vrAppSettings.getEyeBufferParms().getFovY());
+        GVRPerspectiveCamera.setDefaultFovY(vrAppSettings.getEyeBufferParams().getFovY());
         // Different width/height aspect ratio makes the rendered screen warped
         // when the screen rotates
         // GVRPerspectiveCamera.setDefaultAspectRatio(mLensInfo

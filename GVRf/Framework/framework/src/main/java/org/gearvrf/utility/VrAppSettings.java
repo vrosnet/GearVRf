@@ -20,7 +20,7 @@ package org.gearvrf.utility;
  * library.
  */
 public class VrAppSettings {
-    public static class ModeParms {
+    public static class ModeParams {
 
         // To set power save mode is allowed. If true, then the app will run
         // at 30 fps when power is low. Otherwise will show a error message
@@ -75,7 +75,7 @@ public class VrAppSettings {
             this.resetWindowFullScreen = resetWindowFullScreen;
         }
 
-        public ModeParms() {
+        public ModeParams() {
             allowPowerSave = true;
             resetWindowFullScreen = true;
         }
@@ -90,7 +90,7 @@ public class VrAppSettings {
 
     }
 
-    public static class EyeBufferParms {
+    public static class EyeBufferParams {
 
         // Data format for depth buffer
         public DepthFormat depthFormat;
@@ -303,7 +303,7 @@ public class VrAppSettings {
             return mFovY;
         }
 
-        public EyeBufferParms() {
+        public EyeBufferParams() {
             multiSamples = 2;
             resolveDepth = false;
             resolutionWidth = -1;
@@ -330,7 +330,7 @@ public class VrAppSettings {
     // -----------------------------------------------------------------
     // Head Model
     // -----------------------------------------------------------------
-    public static class HeadModelParms {
+    public static class HeadModelParams {
         float interpupillaryDistance; // Distance from left eye to right eye.
         float eyeHeight; // Distance from ground to eye.
         float headModelDepth; // Offset of head center ahead of eyes based on
@@ -416,7 +416,7 @@ public class VrAppSettings {
             this.headModelHeight = headModelHeight;
         }
 
-        public HeadModelParms() {
+        public HeadModelParams() {
             this.interpupillaryDistance = Float.NaN;
             this.eyeHeight = Float.NaN;
             this.headModelDepth = Float.NaN;
@@ -443,8 +443,8 @@ public class VrAppSettings {
     // take effect
     // -----------------------------------------------------------------
 
-    public static class MonoScopicModeParms {
-        private boolean isMonoScopicMode;// Is the app mono scopic rendering
+    public static class MonoscopicModeParams {
+        private boolean isMonoscopicMode;// Is the app mono scopic rendering
                                          // mode?
         private boolean isMonoFullScreen;// If it is mono scopic, will it be
                                          // fullscreen or simple quad?
@@ -455,8 +455,8 @@ public class VrAppSettings {
          * @param isMono
          *            if current app is mono scopic
          */
-        public void setMonoScopicMode(boolean isMono) {
-            this.isMonoScopicMode = isMono;
+        public void setMonoscopicMode(boolean isMono) {
+            this.isMonoscopicMode = isMono;
         }
 
         /**
@@ -464,8 +464,8 @@ public class VrAppSettings {
          * 
          * @return if current app is mono scopic.
          */
-        public boolean isMonoScopicMode() {
-            return isMonoScopicMode;
+        public boolean isMonoscopicMode() {
+            return isMonoscopicMode;
         }
 
         /**
@@ -490,22 +490,22 @@ public class VrAppSettings {
         @Override
         public String toString() {
             StringBuilder result = new StringBuilder();
-            result.append(" isMonoScopicMode = " + isMonoScopicMode);
+            result.append(" isMonoscopicMode = " + isMonoscopicMode);
             result.append(" isMonoFullScreenMode = " + isMonoFullScreen);
             return result.toString();
         }
 
-        public MonoScopicModeParms() {
-            isMonoScopicMode = isMonoFullScreen = false;
+        public MonoscopicModeParams() {
+            isMonoscopicMode = isMonoFullScreen = false;
         }
     }
 
-    public static class PerformanceParms {
+    public static class PerformanceParams {
 
         // Set fixed cpu clock level and gpu clock level.
         public int cpuLevel, gpuLevel;
 
-        public PerformanceParms() {
+        public PerformanceParams() {
             cpuLevel = gpuLevel = 2;
         }
 
@@ -583,11 +583,11 @@ public class VrAppSettings {
     // the phone is docked.
     boolean useGazeCursorController;
 
-    public ModeParms modeParms;
-    public EyeBufferParms eyeBufferParms;
-    public HeadModelParms headModelParms;
-    public MonoScopicModeParms monoScopicModeParms;
-    public PerformanceParms performanceParms;
+    public ModeParams modeParams;
+    public EyeBufferParams eyeBufferParams;
+    public HeadModelParams headModelParams;
+    public MonoscopicModeParams monoscopicModeParams;
+    public PerformanceParams performanceParams;
 
     /**
      * Set if current app prints information from ovrAppSettings
@@ -727,18 +727,18 @@ public class VrAppSettings {
      * 
      * @return Current overall Mode Parameters.
      */
-    public ModeParms getModeParms() {
-        return modeParms;
+    public ModeParams getModeParams() {
+        return modeParams;
     }
 
     /**
      * Set overall Mode Parameters.
      * 
-     * @param modeParms
+     * @param modeParams
      *            New overall Mode Parameters.
      */
-    public void setModeParms(ModeParms modeParms) {
-        this.modeParms = modeParms;
+    public void setModeParams(ModeParams modeParams) {
+        this.modeParams = modeParams;
     }
 
     /**
@@ -746,18 +746,18 @@ public class VrAppSettings {
      * 
      * @return Current overall eye buffer parameters.
      */
-    public EyeBufferParms getEyeBufferParms() {
-        return eyeBufferParms;
+    public EyeBufferParams getEyeBufferParams() {
+        return eyeBufferParams;
     }
 
     /**
      * Set overall eye buffer parameters.
      * 
-     * @param eyeBufferParms
+     * @param eyeBufferParams
      *            New overall eye buffer parameters.
      */
-    public void setEyeBufferParms(EyeBufferParms eyeBufferParms) {
-        this.eyeBufferParms = eyeBufferParms;
+    public void setEyeBufferParams(EyeBufferParams eyeBufferParams) {
+        this.eyeBufferParams = eyeBufferParams;
     }
 
     /**
@@ -765,18 +765,18 @@ public class VrAppSettings {
      * 
      * @return Current overall head mode parameters.
      */
-    public HeadModelParms getHeadModelParms() {
-        return headModelParms;
+    public HeadModelParams getHeadModelParams() {
+        return headModelParams;
     }
 
     /**
      * Set overall head mode parameters.
      * 
-     * @param headModelParms
+     * @param headModelParams
      *            New overall head mode parameters.
      */
-    public void setHeadModelParms(HeadModelParms headModelParms) {
-        this.headModelParms = headModelParms;
+    public void setHeadModelParams(HeadModelParams headModelParams) {
+        this.headModelParams = headModelParams;
     }
 
     /**
@@ -784,18 +784,18 @@ public class VrAppSettings {
      * 
      * @return Current overall mono scopic mode parameters.
      */
-    public MonoScopicModeParms getMonoScopicModeParms() {
-        return monoScopicModeParms;
+    public MonoscopicModeParams getMonoscopicModeParams() {
+        return monoscopicModeParams;
     }
 
     /**
      * Set overall mono scopic mode parameters.
      * 
-     * @param monoScopicModeParms
+     * @param monoscopicModeParams
      *            New overall mono scopic mode parameters.
      */
-    public void setMonoScopicModeParms(MonoScopicModeParms monoScopicModeParms) {
-        this.monoScopicModeParms = monoScopicModeParms;
+    public void setMonoscopicModeParams(MonoscopicModeParams monoscopicModeParams) {
+        this.monoscopicModeParams = monoscopicModeParams;
     }
 
     /**
@@ -803,18 +803,18 @@ public class VrAppSettings {
      * 
      * @return Current overall performance parameters.
      */
-    public PerformanceParms getPerformanceParms() {
-        return performanceParms;
+    public PerformanceParams getPerformanceParams() {
+        return performanceParams;
     }
 
     /**
      * Set overall performance parameters.
      * 
-     * @param monoScopicModeParms
+     * @param performanceParams
      *            New overall performance parameters.
      */
-    public void setPerformanceParms(PerformanceParms performanceParms) {
-        this.performanceParms = performanceParms;
+    public void setPerformanceParams(PerformanceParams performanceParams) {
+        this.performanceParams = performanceParams;
     }
 
     public VrAppSettings() {
@@ -823,11 +823,11 @@ public class VrAppSettings {
         useProtectedFramebuffer = false;
         framebufferPixelsWide = -1;
         framebufferPixelsHigh = -1;
-        modeParms = new ModeParms();
-        eyeBufferParms = new EyeBufferParms();
-        headModelParms = new HeadModelParms();
-        monoScopicModeParms = new MonoScopicModeParms();
-        performanceParms = new PerformanceParms();
+        modeParams = new ModeParams();
+        eyeBufferParams = new EyeBufferParams();
+        headModelParams = new HeadModelParams();
+        monoscopicModeParams = new MonoscopicModeParams();
+        performanceParams = new PerformanceParams();
     }
 
     public String toString() {
@@ -837,11 +837,11 @@ public class VrAppSettings {
         res.append(" useProtectedFramebuffer = " + useProtectedFramebuffer);
         res.append(" framebufferPixelsWide = " + this.framebufferPixelsWide);
         res.append(" framebufferPixelsHigh = " + this.framebufferPixelsHigh);
-        res.append(modeParms.toString());
-        res.append(eyeBufferParms.toString());
-        res.append(headModelParms.toString());
-        res.append(monoScopicModeParms.toString());
-        res.append(performanceParms.toString());
+        res.append(modeParams.toString());
+        res.append(eyeBufferParams.toString());
+        res.append(headModelParams.toString());
+        res.append(monoscopicModeParams.toString());
+        res.append(performanceParams.toString());
         return res.toString();
     }
 }

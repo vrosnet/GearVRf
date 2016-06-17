@@ -96,7 +96,7 @@ public class GVRActivity extends GVRActivityBase {
     protected void onInitAppSettings(VrAppSettings appSettings) {
         super.onInitAppSettings(appSettings);
         if (mForceMonoscopic) {
-            appSettings.getMonoScopicModeParms().setMonoScopicMode(true);
+            appSettings.getMonoscopicModeParams().setMonoscopicMode(true);
         }
     }
 
