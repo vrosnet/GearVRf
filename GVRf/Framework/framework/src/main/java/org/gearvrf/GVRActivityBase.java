@@ -132,15 +132,15 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         startDockEventReceiver();
     }
 
-    public VrAppSettings getAppSettings() {
+    public final VrAppSettings getAppSettings() {
         return mAppSettings;
     }
 
-    protected GVRViewManager getViewManager() {
+    protected final GVRViewManager getViewManager() {
         return mViewManager;
     }
 
-    protected boolean isPaused() {
+    protected final boolean isPaused() {
         return mPaused;
     }
 
@@ -272,7 +272,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      * @return the {@link GVRScript}.
      * @deprecated
      */
-    public GVRScript getScript() {
+    public final GVRScript getScript() {
         return mGVRScript;
     }
 
@@ -289,7 +289,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      *            {@code assets} directory, and can specify a file in a
      *            directory under the application's {@code assets} directory.
      */
-    public void setMain(GVRMain gvrMain, String dataFileName) {
+    public final void setMain(GVRMain gvrMain, String dataFileName) {
         this.mGVRScript = gvrMain;
         this.mGVRMain = gvrMain;
         setScript(gvrMain, dataFileName);
@@ -299,7 +299,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      * Gets the {@linkplain GVRMain} linked to the activity.
      * @return the {@link GVRMain}.
      */
-    public GVRMain getMain() {
+    public final GVRMain getMain() {
         return mGVRMain;
     }
 
@@ -316,7 +316,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      * @deprecated
      */
     @Deprecated
-    public void setForceMonoscopic(boolean force) {
+    public final void setForceMonoscopic(boolean force) {
         mAppSettings.monoscopicModeParams.setMonoscopicMode(force);
     }
 
@@ -328,27 +328,19 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      * @deprecated
      */
     @Deprecated
-    public boolean getForceMonoscopic() {
+    public final boolean getForceMonoscopic() {
         return mAppSettings.monoscopicModeParams.isMonoscopicMode();
     }
 
-    public long getNative() {
+    public final long getNative() {
         return mActivityNative.getNative();
     }
 
-    public GVRActivityNative getActivityNative() {
+    public final GVRActivityNative getActivityNative() {
         return mActivityNative;
     }
 
-    void oneTimeShutDown() {
-        Log.e(TAG, " oneTimeShutDown from native layer");
-    }
-
-    void setCamera(GVRCamera camera) {
-        mActivityNative.setCamera(camera);
-    }
-
-    void setCameraRig(GVRCameraRig cameraRig) {
+    final void setCameraRig(GVRCameraRig cameraRig) {
         mActivityNative.setCameraRig(cameraRig);
     }
 
@@ -434,7 +426,8 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         super.onWindowFocusChanged(hasFocus);
     }
 
-    boolean updateSensoredScene() {
+    //@todo remove
+    final boolean updateSensoredScene() {
         return mViewManager.updateSensoredScene();
     }
 
@@ -446,7 +439,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      * @param view Is a {@link GVRView} that draw itself into some
      *            {@link GVRViewSceneObject}.
      */
-    public void registerView(final View view) {
+    public final void registerView(final View view) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -464,7 +457,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      * 
      * @param view View to be removed.
      */
-    public void unregisterView(final View view) {
+    public final void unregisterView(final View view) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -473,12 +466,12 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         });
     }
 
-    public GVRContext getGVRContext() {
+    public final GVRContext getGVRContext() {
         return mViewManager;
     }
 
     @Override
-    public GVREventReceiver getEventReceiver() {
+    public final GVREventReceiver getEventReceiver() {
         return mEventReceiver;
     }
 
@@ -533,7 +526,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
 
     private final List<DockListener> mDockListeners = new CopyOnWriteArrayList<DockListener>();
 
-    void addDockListener(final DockListener dl) {
+    final void addDockListener(final DockListener dl) {
         mDockListeners.add(dl);
     }
 

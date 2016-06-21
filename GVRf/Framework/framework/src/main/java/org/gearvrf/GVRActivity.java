@@ -41,7 +41,7 @@ public class GVRActivity extends GVRActivityBase {
 
     @Override
     protected final GVRActivityNative makeActivityNative() {
-        return GVRActivityNative.createObject(this, getAppSettings(), mRenderingCallbacks);
+        return new GVRActivityNative(this, getAppSettings(), mRenderingCallbacks);
     }
 
     @Override
@@ -170,4 +170,8 @@ public class GVRActivity extends GVRActivityBase {
     private ActivityHandler mActivityHandler;
     private boolean mForceMonoscopic;
 
+    //@todo remove
+    final void setCamera(GVRCamera camera) {
+        getActivityNative().setCamera(camera);
+    }
 }
