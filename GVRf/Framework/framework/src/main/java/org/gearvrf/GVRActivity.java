@@ -84,10 +84,10 @@ public class GVRActivity extends GVRActivityBase {
 
     @Override
     protected void onInitAppSettings(VrAppSettings appSettings) {
-        super.onInitAppSettings(appSettings);
         if (mForceMonoscopic) {
             appSettings.getMonoscopicModeParams().setMonoscopicMode(true);
         }
+        super.onInitAppSettings(appSettings);
     }
 
     public View getFullScreenView() {
