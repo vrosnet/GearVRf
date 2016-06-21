@@ -26,13 +26,17 @@ import org.gearvrf.utility.GrowBeforeQueueThreadPoolExecutor;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.Threads;
 import org.gearvrf.utility.VrAppSettings;
+import org.joml.Vector2f;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.PixelFormat;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -252,19 +256,28 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         }
     }
 
+    /**
+     * Invalidating just the GVRView associated with the GVRViewSceneObject
+     * incorrectly set the clip rectangle to just that view. To fix this,
+     * we have to create a full screen android View and invalidate this
+     * to restore the clip rectangle.
+     */
     public View getFullScreenView() {
-//        if (mFullScreenView != null)
-//            return mFullScreenView;
-//        VrapiActivityHandler handler = (VrapiActivityHandler) mActivityHandler;
-//        if (handler != null) {
-//            Vector2f dim = handler.getScreenDimensions();
-//            ViewGroup.LayoutParams layout = new ViewGroup.LayoutParams((int) dim.x, (int) dim.y);
-//            mFullScreenView = new View(this);
-//            mFullScreenView.setLayoutParams(layout);
-//            mRenderableViewGroup.addView(mFullScreenView);
-//        }
-//        return mFullScreenView;
-        return null;
+        if (mFullScreenView != null) {
+            return mFullScreenView;
+        }
+
+        final DisplayMetrics metrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        final int screenWidthPixels = Math.max(metrics.widthPixels, metrics.heightPixels);
+        final int screenHeightPixels = Math.min(metrics.widthPixels, metrics.heightPixels);
+
+        final ViewGroup.LayoutParams layout = new ViewGroup.LayoutParams(screenWidthPixels, screenHeightPixels);
+        mFullScreenView = new View(this);
+        mFullScreenView.setLayoutParams(layout);
+        mRenderableViewGroup.addView(mFullScreenView);
+
+        return mFullScreenView;
     }
 
     /**
