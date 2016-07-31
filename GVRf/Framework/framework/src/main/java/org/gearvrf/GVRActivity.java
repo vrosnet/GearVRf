@@ -15,6 +15,10 @@
 
 package org.gearvrf;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -52,7 +56,7 @@ import android.view.WindowManager;
  * of your scene graph. {@code GVRActivity} also gives GVRF a full-screen window
  * in landscape orientation with no title bar.
  */
-abstract class GVRActivityBase extends Activity implements IEventReceiver, IScriptable {
+public class GVRActivity extends Activity implements IEventReceiver, IScriptable {
 
     protected static final String TAG = "GVRActivity";
 
@@ -87,6 +91,22 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
     protected void onCreate(Bundle savedInstanceState) {
         android.util.Log.i(TAG, "onCreate " + Integer.toHexString(hashCode()));
         super.onCreate(savedInstanceState);
+        mAppSettings = new VrAppSettings(); //needs to happen early
+
+        final InputStream inputStream = getResources().openRawResource(R.raw.backends);
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+        String line = null;
+        try {
+            line = reader.readLine();
+            final Class<?> aClass = Class.forName(line);
+            mDelegate = (GVRActivityDelegate) aClass.newInstance();
+        } catch (final Exception e) {
+            Log.e(TAG, "fatal error:", e);
+            finish();
+            return;
+        }
+
+        mDelegate.onCreate(this);
 
         if (null != Threads.getThreadPool()) {
             Threads.getThreadPool().shutdownNow();
@@ -100,7 +120,6 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        mAppSettings = new VrAppSettings();
 
         mRenderableViewGroup = (ViewGroup) findViewById(android.R.id.content).getRootView();
         mDockEventReceiver = new DockEventReceiver(this,
@@ -117,17 +136,14 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
                 });
         mDockEventReceiver.start();
 
-        mActivityNative = makeActivityNative();
+        mActivityNative = mDelegate.getActivityNative();
     }
-
-    abstract GVRActivityNative makeActivityNative();
-    abstract GVRViewManager makeViewManager(GVRXMLParser xmlParser);
-    abstract GVRMonoscopicViewManager makeMonoscopicViewManager(GVRXMLParser xmlParser);
 
     protected void onInitAppSettings(VrAppSettings appSettings) {
+        mDelegate.onInitAppSettings(appSettings);
     }
 
-    private void onConfigure(){
+    private void onConfigure() {
         GVRConfigurationManager.onInitialize(this, getAppSettings());
         GVRConfigurationManager.getInstance().invalidate();
 
@@ -151,6 +167,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
     protected void onPause() {
         android.util.Log.i(TAG, "onPause " + Integer.toHexString(hashCode()));
 
+        mDelegate.onPause();
         mPaused = true;
         if (mViewManager != null) {
             mViewManager.onPause();
@@ -168,6 +185,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
     protected void onResume() {
         android.util.Log.i(TAG, "onResume " + Integer.toHexString(hashCode()));
 
+        mDelegate.onResume();
         mPaused = false;
         super.onResume();
         if (mViewManager != null) {
@@ -220,15 +238,17 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
     public void setScript(GVRScript gvrScript, String dataFileName) {
         this.mGVRScript = gvrScript;
         if (getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
-
             GVRXMLParser xmlParser = new GVRXMLParser(getAssets(),
                     dataFileName, mAppSettings);
             onConfigure();
+            mDelegate.setScript(gvrScript, dataFileName);
+
             if (!mAppSettings.getMonoscopicModeParams().isMonoscopicMode()) {
-                mViewManager = makeViewManager(xmlParser);
+                mViewManager = mDelegate.makeViewManager(xmlParser);
             } else {
-                mViewManager = makeMonoscopicViewManager(xmlParser);
+                mViewManager = mDelegate.makeMonoscopicViewManager(xmlParser);
             }
+            mDelegate.setViewManager(mViewManager);
 
             if (gvrScript instanceof GVRMain) {
                 mViewManager.setUseTheFrameworkThread(true);
@@ -369,11 +389,31 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (mDelegate.onKeyDown(keyCode, event)) {
+            return true;
+        }
+
         if (KeyEvent.KEYCODE_BACK == keyCode) {
             event.startTracking();
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (mDelegate.onKeyUp(keyCode, event)) {
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (mDelegate.onKeyLongPress(keyCode, event)) {
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 
     @Override
@@ -403,6 +443,8 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
+        mDelegate.onConfigurationChanged(newConfig);
+
         if (mViewManager != null) {
             mViewManager.getEventManager().sendEventWithMask(
                     SEND_EVENT_MASK,
@@ -532,7 +574,7 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         runOnUiThread(r);
     }
 
-    interface DockListener {
+    static interface DockListener {
         void onDock();
         void onUndock();
     }
@@ -563,4 +605,24 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
         }
     }
 
+    private GVRActivityDelegate mDelegate;
+
+    public interface GVRActivityDelegate {
+        void onCreate(GVRActivity thiz);
+        void onPause();
+        void onResume();
+        void onConfigurationChanged(final Configuration newConfig);
+
+        boolean onKeyDown(int keyCode, KeyEvent event);
+        boolean onKeyUp(int keyCode, KeyEvent event);
+        boolean onKeyLongPress(int keyCode, KeyEvent event);
+
+        void setScript(GVRScript gvrScript, String dataFileName);
+        void setViewManager(GVRViewManager viewManager);
+        void onInitAppSettings(VrAppSettings appSettings);
+
+        GVRActivityNative getActivityNative();
+        GVRViewManager makeViewManager(final GVRXMLParser xmlParser);
+        GVRMonoscopicViewManager makeMonoscopicViewManager(final GVRXMLParser xmlParser);
+    }
 }

@@ -55,14 +55,14 @@ class VrapiActivityHandler implements ActivityHandler {
     private EGLSurface mMainSurface;
     boolean mVrApiInitialized;
 
-    VrapiActivityHandler(final GVRActivity activity,
+    VrapiActivityHandler(final GVRActivity activity, final GVRActivityNative activityNative,
             final ActivityHandlerRenderingCallbacks callbacks) throws VrapiNotAvailableException {
         if (null == callbacks || null == activity) {
             throw new IllegalArgumentException();
         }
         mActivity = activity;
         mCallbacks = callbacks;
-        mPtr = activity.getNative();
+        mPtr = activityNative.getNative();
 
         if (VRAPI_INITIALIZE_UNKNOWN_ERROR == nativeInitializeVrApi(mPtr)) {
             throw new VrapiNotAvailableException();

@@ -24,14 +24,14 @@ import java.lang.ref.WeakReference;
 
 final class GVRConfigurationManager {
 
-    private WeakReference<GVRActivityBase> mActivity;
+    private WeakReference<GVRActivity> mActivity;
     private static GVRConfigurationManager sInstance;
 
-    private GVRConfigurationManager(GVRActivityBase gvrActivity) {
-        mActivity = new WeakReference<GVRActivityBase>(gvrActivity);
+    private GVRConfigurationManager(GVRActivity gvrActivity) {
+        mActivity = new WeakReference<GVRActivity>(gvrActivity);
     }
 
-    static void onInitialize(GVRActivityBase activity, VrAppSettings settings) {
+    static void onInitialize(GVRActivity activity, VrAppSettings settings) {
         sInstance = new GVRConfigurationManager(activity);
     }
 
@@ -48,7 +48,7 @@ final class GVRConfigurationManager {
      * @return true if GearVR is connected, false otherwise
      */
     public boolean isHmtConnected() {
-        final GVRActivityBase activity = mActivity.get();
+        final GVRActivity activity = mActivity.get();
         if (null == activity) {
             return false;
         }

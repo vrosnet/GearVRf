@@ -15,9 +15,8 @@
 
 package org.gearvrf;
 
-import android.os.Bundle;
+import android.content.res.Configuration;
 import android.view.KeyEvent;
-import android.view.View;
 
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
@@ -25,14 +24,19 @@ import org.gearvrf.utility.VrAppSettings;
 /**
  * {@inheritDoc}
  */
-public class GVRActivity extends GVRActivityBase {
+final class OvrActivityDelegate implements GVRActivity.GVRActivityDelegate {
+    private GVRActivity mThiz;
+    private GVRViewManager mActiveViewManager;
+    private GVRActivityNative mActivityNative;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onCreate(GVRActivity thiz) {
+        mThiz = thiz;
+
+        mActivityNative = new GVRActivityNative(mThiz, mThiz.getAppSettings(), mRenderingCallbacks);
 
         try {
-            mActivityHandler = new VrapiActivityHandler(this, mRenderingCallbacks);
+            mActivityHandler = new VrapiActivityHandler(thiz, mActivityNative, mRenderingCallbacks);
         } catch (final Exception ignored) {
             // will fall back to mono rendering in that case
             mForceMonoscopic = true;
@@ -40,44 +44,41 @@ public class GVRActivity extends GVRActivityBase {
     }
 
     @Override
-    protected final GVRActivityNative makeActivityNative() {
-        return new GVRActivityNative(this, getAppSettings(), mRenderingCallbacks);
+    public GVRActivityNative getActivityNative() {
+        return mActivityNative;
     }
 
     @Override
-    protected final GVRViewManager makeViewManager(final GVRXMLParser xmlParser) {
-        return new GVRViewManager(this, getScript(), xmlParser);
+    public GVRViewManager makeViewManager(final GVRXMLParser xmlParser) {
+        return new GVRViewManager(mThiz, mThiz.getScript(), xmlParser);
     }
 
     @Override
-    protected final GVRMonoscopicViewManager makeMonoscopicViewManager(final GVRXMLParser xmlParser) {
-        return new GVRMonoscopicViewManager(this, getScript(), xmlParser);
+    public GVRMonoscopicViewManager makeMonoscopicViewManager(final GVRXMLParser xmlParser) {
+        return new GVRMonoscopicViewManager(mThiz, mThiz.getScript(), xmlParser);
     }
 
     @Override
-    protected void onPause() {
+    public void onPause() {
         if (null != mActivityHandler) {
             mActivityHandler.onPause();
         }
-        super.onPause();
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    public void onResume() {
         if (null != mActivityHandler) {
             mActivityHandler.onResume();
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public final void setScript(GVRScript gvrScript, String dataFileName) {
-        super.setScript(gvrScript, dataFileName);
+    public void onConfigurationChanged(Configuration newConfig) {
+    }
 
-        if (getAppSettings().getMonoscopicModeParams().isMonoscopicMode()) {
+    @Override
+    public void setScript(GVRScript gvrScript, String dataFileName) {
+        if (mThiz.getAppSettings().getMonoscopicModeParams().isMonoscopicMode()) {
             mActivityHandler = null;
         } else if (null != mActivityHandler) {
             mActivityHandler.onSetScript();
@@ -85,11 +86,15 @@ public class GVRActivity extends GVRActivityBase {
     }
 
     @Override
-    protected void onInitAppSettings(VrAppSettings appSettings) {
+    public void setViewManager(GVRViewManager viewManager) {
+        mActiveViewManager = viewManager;
+    }
+
+    @Override
+    public void onInitAppSettings(VrAppSettings appSettings) {
         if (mForceMonoscopic) {
             appSettings.getMonoscopicModeParams().setMonoscopicMode(true);
         }
-        super.onInitAppSettings(appSettings);
     }
 
     @Override
@@ -98,17 +103,17 @@ public class GVRActivity extends GVRActivityBase {
             event.startTracking();
             return true;
         }
-        return super.onKeyDown(keyCode, event);
+        return false;
     }
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (!isPaused() && KeyEvent.KEYCODE_BACK == keyCode) {
+        if (!mThiz.isPaused() && KeyEvent.KEYCODE_BACK == keyCode) {
             if (null != mActivityHandler) {
                 return mActivityHandler.onBack();
             }
         }
-        return super.onKeyUp(keyCode, event);
+        return false;
     }
 
     @Override
@@ -118,36 +123,35 @@ public class GVRActivity extends GVRActivityBase {
                 return mActivityHandler.onBackLongPress();
             }
         }
-        return super.onKeyLongPress(keyCode, event);
+        return false;
     }
 
     private final ActivityHandlerRenderingCallbacks mRenderingCallbacks = new ActivityHandlerRenderingCallbacks() {
         @Override
         public void onSurfaceCreated() {
-            getViewManager().onSurfaceCreated();
+            mActiveViewManager.onSurfaceCreated();
         }
 
         @Override
         public void onSurfaceChanged(int width, int height) {
-            getViewManager().onSurfaceChanged(width, height);
+            mActiveViewManager.onSurfaceChanged(width, height);
         }
 
         @Override
         public void onBeforeDrawEyes() {
-            final GVRViewManager viewManager = getViewManager();
-            viewManager.beforeDrawEyes();
-            viewManager.onDrawFrame();
+            mActiveViewManager.beforeDrawEyes();
+            mActiveViewManager.onDrawFrame();
         }
 
         @Override
         public void onAfterDrawEyes() {
-            getViewManager().afterDrawEyes();
+            mActiveViewManager.afterDrawEyes();
         }
 
         @Override
         public void onDrawEye(int eye) {
             try {
-                getViewManager().onDrawEyeView(eye);
+                mActiveViewManager.onDrawEyeView(eye);
             } catch (final Exception e) {
                 Log.e(TAG, "error in onDrawEyeView", e);
             }
@@ -156,4 +160,6 @@ public class GVRActivity extends GVRActivityBase {
 
     private ActivityHandler mActivityHandler;
     private boolean mForceMonoscopic;
+
+    private final static String TAG = "OvrActivityDelegate";
 }
