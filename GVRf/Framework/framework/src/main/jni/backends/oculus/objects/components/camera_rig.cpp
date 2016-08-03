@@ -21,6 +21,8 @@
 #include "camera_rig.h"
 #include "objects/scene_object.h"
 #include "glm/gtc/quaternion.hpp"
+//#include "../../../../objects/components/camera_rig_base.h"
+#include <objects/components/camera_rig_base.h>
 
 namespace gvr {
 

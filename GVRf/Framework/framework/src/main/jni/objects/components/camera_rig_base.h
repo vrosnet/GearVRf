@@ -27,9 +27,9 @@
 #include "glm/glm.hpp"
 #include "glm/gtx/quaternion.hpp"
 
-#include "objects/components/component.h"
-#include "objects/components/transform.h"
-#include "objects/rotation_sensor_data.h"
+#include "component.h"
+#include "transform.h"
+#include "../rotation_sensor_data.h"
 
 namespace gvr {
 class Camera;

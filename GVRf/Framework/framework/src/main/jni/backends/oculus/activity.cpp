@@ -21,6 +21,7 @@
 #include "VrApi_Types.h"
 #include "VrApi_Helpers.h"
 #include "SystemActivities.h"
+#include "../../util/gvr_log.h"
 
 static const char* activityClassName = "org/gearvrf/GVRActivity";
 static const char* activityHandlerRenderingCallbacksClassName = "org/gearvrf/ActivityHandlerRenderingCallbacks";

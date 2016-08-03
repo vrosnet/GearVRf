@@ -22,6 +22,7 @@
 #include "objects/components/camera_rig.h"
 #include "util/gvr_jni.h"
 #include "util/gvr_java_stack_trace.h"
+#include "../../contrib/jassimp2/jassimp.h"
 
 namespace gvr {
 extern "C" {

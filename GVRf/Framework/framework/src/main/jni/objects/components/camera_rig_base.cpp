@@ -26,6 +26,7 @@
 #include "objects/components/camera.h"
 #include "objects/components/perspective_camera.h"
 #include "util/gvr_time.h"
+#include "../../util/gvr_log.h"
 
 namespace gvr {
 
