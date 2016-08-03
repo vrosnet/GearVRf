@@ -269,7 +269,7 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
    // LOGE("rendering %s with program %d", render_data->owner_object()->name().c_str(), program_->id());
 
     Mesh* mesh = render_data->mesh();
-    glUseProgram(program_->id());
+    GL(glUseProgram(program_->id()));
     /*
      * Update the bone matrices
      */
@@ -287,7 +287,7 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
             nBones = MAX_BONES;
         for (int i = 0; i < nBones; ++i) {
             finalTransform = mesh->getVertexBoneData().getFinalBoneTransform(i);
-            glUniformMatrix4fv(u_bone_matrices + i, 1, GL_FALSE, glm::value_ptr(finalTransform));
+            GL(glUniformMatrix4fv(u_bone_matrices + i, 1, GL_FALSE, glm::value_ptr(finalTransform)));
         }
         checkGlError("CustomShader after bones");
     }
@@ -307,34 +307,46 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
     }
 
     if (u_model_ != -1){
-    	glUniformMatrix4fv(u_model_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_model));
+    	GL(glUniformMatrix4fv(u_model_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_model)));
     }
     if (u_mvp_ != -1) {
-        if(use_multiview)
-            glUniformMatrix4fv(u_mvp_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mvp_[0]));
-        else
-            glUniformMatrix4fv(u_mvp_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mvp));
+        if(use_multiview) {
+            GL(
+                glUniformMatrix4fv(
+                        u_mvp_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mvp_[0])
+                )
+            );
+        } else {
+            GL(glUniformMatrix4fv(u_mvp_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mvp)));
+        }
     }
     if (u_view_ != -1) {
-        if(use_multiview)
-            glUniformMatrix4fv(u_view_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_view_[0]));
-        else
-            glUniformMatrix4fv(u_view_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_view));
+        if(use_multiview) {
+            GL(glUniformMatrix4fv(u_view_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_view_[0])));
+        } else {
+            GL(glUniformMatrix4fv(u_view_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_view)));
+        }
     }
     if (u_mv_ != -1) {
-       if(use_multiview)
-           glUniformMatrix4fv(u_mv_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv_[0]));
-       else
-          glUniformMatrix4fv(u_mv_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv));
+       if(use_multiview) {
+           GL(glUniformMatrix4fv(u_mv_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv_[0])));
+       } else {
+           GL(
+                   glUniformMatrix4fv(
+                           u_mv_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv)
+                   )
+           );
+       }
     }
     if (u_mv_it_ != -1) {
-        if(use_multiview)
-            glUniformMatrix4fv(u_mv_it_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv_it_[0]));
-        else
-            glUniformMatrix4fv(u_mv_it_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv_it));
+        if(use_multiview) {
+            GL(glUniformMatrix4fv(u_mv_it_, 2, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv_it_[0])));
+        } else {
+            GL(glUniformMatrix4fv(u_mv_it_, 1, GL_FALSE, glm::value_ptr(rstate->uniforms.u_mv_it)));
+        }
     }
     if (u_right_ != 0) {
-        glUniform1i(u_right_, rstate->uniforms.u_right ? 1 : 0);
+        GL(glUniform1i(u_right_, rstate->uniforms.u_right ? 1 : 0));
     }
     /*
      * Bind textures
@@ -348,6 +360,7 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
             texture_index++;
         }
     }
+    checkGlError("CustomShader::render1");
     /*
      * Update the uniforms for the lights
      */

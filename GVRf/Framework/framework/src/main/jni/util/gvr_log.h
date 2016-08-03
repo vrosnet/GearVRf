@@ -34,13 +34,13 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 //#define STOP_ON_ERROR
-//#define GL( func )      func; checkGLError(#func);
-#define GL( func )      func;
+#define GL( func )      func; checkGLError(#func);
+//#define GL( func )      func;
 
 //#define clearGLError(msg)
 #define clearGLError(msg) checkGLError(msg);
 
-static bool DEBUG_RENDERER = false; //printf() or glGetError() per frame is expensive
+static bool DEBUG_RENDERER = true; //printf() or glGetError() per frame is expensive
 
 static const char * GlErrorString( GLenum error )
 {
@@ -62,11 +62,11 @@ static void checkGLError(const char* name)
     bool error = false;
 #endif
     for (int i = 0; i < 10; ++i) {
-        const GLenum error = glGetError();
-        if (GL_NO_ERROR == error) {
+        const GLenum glError = glGetError();
+        if (GL_NO_ERROR == glError) {
             break;
         }
-        LOGE("%s error: %s", name, GlErrorString(error));
+        LOGE("%s error: %s", name, GlErrorString(glError));
 #ifdef STOP_ON_ERROR
         error = true;
 #endif

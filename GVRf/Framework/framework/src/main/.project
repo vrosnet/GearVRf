@@ -99,4 +99,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>oculus</name>
+			<type>2</type>
+			<location>/home/mmarinov/git/vrtop_public/GearVRf/GVRf/Framework/backend_oculus/src/main/java</location>
+		</link>
+	</linkedResources>
 </projectDescription>

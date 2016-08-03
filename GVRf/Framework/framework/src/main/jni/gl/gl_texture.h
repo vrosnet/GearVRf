@@ -59,6 +59,7 @@ public:
 
     virtual ~GLTexture() {
         if (0 != id_ && deleter_) {
+            LOGI("mmarinov:GLTexture-dtor: %d", id_);
             deleter_->queueTexture(id_);
         }
     }
@@ -82,6 +83,7 @@ public:
             deleter_= getDeleterForThisThread();
 
             glGenTextures(1, &id_);
+            LOGI("mmarinov:runPendingGL1: %d", id_);
             glBindTexture(target_, id_);
             glTexParameteri(target_, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(target_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -108,6 +110,7 @@ public:
             GLenum wrap_t_type_ = texture_parameters_[4];
 
             glGenTextures(1, &id_);
+            LOGI("mmarinov:runPendingGL2: %d %d", target_,id_);
             glBindTexture(target_, id_);
 
             // Sets the anisotropic filtering if the value provided is greater than 1 because 1 is the default value

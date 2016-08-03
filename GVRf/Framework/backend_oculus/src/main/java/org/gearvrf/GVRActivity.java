@@ -17,7 +17,6 @@ package org.gearvrf;
 
 import android.os.Bundle;
 import android.view.KeyEvent;
-import android.view.View;
 
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.VrAppSettings;
@@ -68,6 +67,23 @@ public class GVRActivity extends GVRActivityBase {
         if (null != mActivityHandler) {
             mActivityHandler.onResume();
         }
+    }
+
+    /**
+     * Sets whether to force rendering to be single-eye, monoscopic view.
+     * 
+     * @param force
+     *            If true, will create a GVRMonoscopicViewManager when
+     *            {@linkplain setMain setMain()} is called. If false, will
+     *            proceed to auto-detect whether the device supports VR
+     *            rendering and choose the appropriate ViewManager. This call
+     *            will only have an effect if it is called before
+     *            {@linkplain #setMain(GVRMain, String) setMain()}.
+     * @deprecated
+     */
+    @Deprecated
+    public void setForceMonoscopic(boolean force) {
+        getViewManager().
     }
 
     /**

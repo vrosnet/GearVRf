@@ -146,7 +146,7 @@ std::unordered_map<Batch*, int> batch_map;
 #define MAX_INDICES 400
 
 void getNewBatch(RenderData* rdata, Batch** existing_batch){
-    Batch* new_batch = new Batch(MAX_INDICES, MAX_INDICES);
+    Batch* new_batch = new Batch(MAX_INDICES, MAX_INDICES,1);
     new_batch->add(rdata);
     rdata->setBatch(new_batch);
     batch_set.push_back(new_batch);
@@ -254,7 +254,7 @@ void createBatch(int start, int end) {
                     }
 
                     delete current_batch;
-                    Batch* new_batch = new Batch(MAX_INDICES, MAX_INDICES);
+                    Batch* new_batch = new Batch(MAX_INDICES, MAX_INDICES, 0);
                     render_data->setBatch(new_batch);
                     new_batch->add(render_data);
                     batch_set.push_back(new_batch);
@@ -441,28 +441,29 @@ void Renderer::renderbatches(RenderState& rstate) {
         }
 
         RenderData* renderdata = batch->get_renderdata();
-        const std::vector<glm::mat4>& matrices = batch->get_matrices();
-        numberDrawCalls++;
-        batch->setupMesh();
-        setRenderStates(renderdata, rstate);
+        if (nullptr != renderdata) {
+            const std::vector<glm::mat4>& matrices = batch->get_matrices();
+            numberDrawCalls++;
+            batch->setupMesh();
+            setRenderStates(renderdata, rstate);
 
-        if(use_multiview){
+            if(use_multiview){
+                rstate.uniforms.u_view_[0] = rstate.scene->main_camera_rig()->left_camera()->getViewMatrix();
+                rstate.uniforms.u_view_[1] = rstate.scene->main_camera_rig()->right_camera()->getViewMatrix();
+            }
 
-            rstate.uniforms.u_view_[0] = rstate.scene->main_camera_rig()->left_camera()->getViewMatrix();
-            rstate.uniforms.u_view_[1] = rstate.scene->main_camera_rig()->right_camera()->getViewMatrix();
+//            rstate.shader_manager->getTextureShader()->render_batch(matrices,
+//                    renderdata, rstate, batch->getIndexCount(),
+//                    batch->getNumberOfMeshes());
+            restoreRenderStates(renderdata);
         }
-
-        rstate.shader_manager->getTextureShader()->render_batch(matrices,
-                renderdata, rstate, batch->getIndexCount(),
-                batch->getNumberOfMeshes());
-        restoreRenderStates(renderdata);
     }
 
 }
-bool do_batching = true;
+bool do_batching = false;
 
 void Renderer::renderRenderDataVector(RenderState &rstate) {
-
+    LOGI("mmarinov:Renderer::renderRenderDataVector: --------------------------- ");
     if (!do_batching) {
         for (auto it = render_data_vector.begin();
                 it != render_data_vector.end(); ++it) {
@@ -1039,6 +1040,8 @@ void Renderer::renderMaterialShader(RenderState& rstate, RenderData* render_data
              }
          }
          shader->render(&rstate, render_data, curr_material);
+         LOGI("curr_material->shader_type() %d", curr_material->shader_type());
+         checkGlError("renderMesh::renderMaterialShader11");
     } catch (const std::string &error) {
         LOGE(
                 "Error detected in Renderer::renderRenderData; name : %s, error : %s",
@@ -1047,6 +1050,7 @@ void Renderer::renderMaterialShader(RenderState& rstate, RenderData* render_data
         shader_manager->getErrorShader()->render(&rstate, render_data, curr_material);
     }
 
+    checkGlError("renderMesh::renderMaterialShader33");
     programId = shader->getProgramId();
     //there is no program associated with EXTERNAL_RENDERER_SHADER
     if (-1 != programId) {

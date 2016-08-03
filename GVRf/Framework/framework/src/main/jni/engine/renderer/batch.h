@@ -31,8 +31,7 @@ class Material;
 class Mesh;
 class Batch {
 public:
-	Batch();
-	Batch(int,int);
+	Batch(int,int,int);
 	~Batch();
 	bool add(RenderData *render_data);
 	void UpdateModelMatrix(RenderData* renderdata, glm::mat4 model_matrix){

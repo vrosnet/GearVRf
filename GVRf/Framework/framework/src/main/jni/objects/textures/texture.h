@@ -46,6 +46,7 @@ public:
     }
 
     virtual void updateTextureParameters(int* texture_parameters) {
+        LOGI("mmarinov:updateTextureParameters: ");
         // Sets the new MIN FILTER
         GLenum min_filter_type_ = texture_parameters[0];
 

@@ -15,8 +15,17 @@
 
 package org.gearvrf;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import android.app.Activity;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
+import android.os.Bundle;
+import android.util.DisplayMetrics;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 
 import org.gearvrf.scene_objects.GVRViewSceneObject;
 import org.gearvrf.scene_objects.view.GVRView;
@@ -26,21 +35,9 @@ import org.gearvrf.utility.GrowBeforeQueueThreadPoolExecutor;
 import org.gearvrf.utility.Log;
 import org.gearvrf.utility.Threads;
 import org.gearvrf.utility.VrAppSettings;
-import org.joml.Vector2f;
 
-import android.app.Activity;
-import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
-import android.graphics.PixelFormat;
-import android.os.Bundle;
-import android.util.DisplayMetrics;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
-import android.view.SurfaceHolder;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * The typical GVRF application will have a single Android {@link Activity},
@@ -315,23 +312,6 @@ abstract class GVRActivityBase extends Activity implements IEventReceiver, IScri
      */
     public final GVRMain getMain() {
         return mGVRMain;
-    }
-
-    /**
-     * Sets whether to force rendering to be single-eye, monoscopic view.
-     * 
-     * @param force
-     *            If true, will create a GVRMonoscopicViewManager when
-     *            {@linkplain setMain setMain()} is called. If false, will
-     *            proceed to auto-detect whether the device supports VR
-     *            rendering and choose the appropriate ViewManager. This call
-     *            will only have an effect if it is called before
-     *            {@linkplain #setMain(GVRMain, String) setMain()}.
-     * @deprecated
-     */
-    @Deprecated
-    public final void setForceMonoscopic(boolean force) {
-        mAppSettings.monoscopicModeParams.setMonoscopicMode(force);
     }
 
     /**
