@@ -63,7 +63,6 @@ bool Batch::add(RenderData *render_data) {
     matrices_.push_back(model_matrix);
     render_data->owner_object()->setTransformUnDirty();
 
-
     // if it is not texture shader, dont add into batch, render in normal way
     if (material_->shader_type() != Material::ShaderType::TEXTURE_SHADER) {
         render_data_set_.insert(render_data);
@@ -87,8 +86,8 @@ bool Batch::add(RenderData *render_data) {
         if (!renderdata_) {
             renderdata_ = new RenderData(*render_data);
             renderdata_->set_batching(true);
+            LOGI("batching: new copy of renderData created; %p", renderdata_);
        }
-
     }
 
     render_data_set_.insert(render_data); // store all the renderdata which are in batch

@@ -34,7 +34,9 @@ final class GVRContextPrivate {
             try {
                 while (true) {
                     GVRReference reference = (GVRReference)mReferenceQueue.remove();
-                    reference.close();
+                    synchronized(GVRContextPrivate.this) {
+                        reference.close();
+                    }
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();

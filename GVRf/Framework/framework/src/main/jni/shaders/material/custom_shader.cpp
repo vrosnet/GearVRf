@@ -250,8 +250,10 @@ void CustomShader::addUniformMat4Key(const std::string& variable_name,
 
 void CustomShader::render(RenderState* rstate, RenderData* render_data, Material* material) {
 	//LOGE(" start of render %s", render_data->owner_object()->name().c_str());
+    LOGI("mmarinov 11");
 	initializeOnDemand(rstate);
     {
+	    LOGI("mmarinov 22");
         std::lock_guard<std::mutex> lock(textureVariablesLock_);
         for (auto it = textureVariables_.begin(); it != textureVariables_.end(); ++it) {
             Texture* texture = material->getTextureNoError(it->key);
@@ -268,6 +270,7 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
     }
    // LOGE("rendering %s with program %d", render_data->owner_object()->name().c_str(), program_->id());
 
+    LOGI("mmarinov 33");
     Mesh* mesh = render_data->mesh();
     glUseProgram(program_->id());
     /*
@@ -294,6 +297,7 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
     /*
      * Update values of uniform variables
      */
+    LOGI("mmarinov 44");
     {
         std::lock_guard<std::mutex> lock(uniformVariablesLock_);
         for (auto it = uniformVariables_.begin(); it != uniformVariables_.end(); ++it) {
@@ -336,6 +340,7 @@ void CustomShader::render(RenderState* rstate, RenderData* render_data, Material
     if (u_right_ != 0) {
         glUniform1i(u_right_, rstate->uniforms.u_right ? 1 : 0);
     }
+    LOGI("mmarinov 55");
     /*
      * Bind textures
      */

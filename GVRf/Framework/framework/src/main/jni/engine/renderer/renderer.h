@@ -92,7 +92,7 @@ private:
 public:
     static void restoreRenderStates(RenderData* render_data);
     static void setRenderStates(RenderData* render_data, RenderState& rstate);
-    static void BatchSetup();
+    static void batchSetup();
     static void renderbatches(RenderState& rstate);
     static void renderRenderDataVector(RenderState &rstate);
     static void renderCamera(Scene* scene, Camera* camera, int framebufferId,

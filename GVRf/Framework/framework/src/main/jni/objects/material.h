@@ -65,9 +65,11 @@ public:
             floats_["opacity"] = 1.0f;
             break;
         }
+        LOGI("mmarinov created material %p", this);
     }
 
     ~Material() {
+        LOGI("mmarinov deleted material %p", this);
     }
 
     ShaderType shader_type() const {

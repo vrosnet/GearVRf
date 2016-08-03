@@ -2712,7 +2712,7 @@ public abstract class GVRContext implements IEventReceiver {
      */
     public abstract void captureScreen3D(GVRScreenshot3DCallback callback);
 
-    private final GVRContextPrivate mContextPrivate = new GVRContextPrivate();
+    protected final GVRContextPrivate mContextPrivate = new GVRContextPrivate();
 
     final void releaseNative(final GVRHybridObject hybridObject) {
         mContextPrivate.releaseNative(hybridObject);

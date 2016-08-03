@@ -147,6 +147,7 @@ std::unordered_map<Batch*, int> batch_map;
 
 void getNewBatch(RenderData* rdata, Batch** existing_batch){
     Batch* new_batch = new Batch(MAX_INDICES, MAX_INDICES);
+    LOGI("batching: creating a new batch; %p", new_batch);
     new_batch->add(rdata);
     rdata->setBatch(new_batch);
     batch_set.push_back(new_batch);
@@ -161,22 +162,30 @@ std::vector<int> batch_indices;
 void createBatch(int start, int end) {
     Batch* existing_batch = nullptr;
     int size = BATCH_SIZE;
+
+    LOGI("batching: [[[ processing batch for index %d to %d", start, end);
     // get batch with least no of meshes in it
     for (int i = start; i <= end; ++i) {
         if (render_data_vector[i]->getBatch() != nullptr) {
+            LOGI("batching: render_data_vector[i]->getBatch() != nullptr");
             if (render_data_vector[i]->getBatch()->getNumberOfMeshes()
                     <= size) {
                 size = render_data_vector[i]->getBatch()->getNumberOfMeshes();
+                LOGI("batching: render_data_vector[i]->getBatch()->getNumberOfMeshes() <= size; %d", size);
                 existing_batch = render_data_vector[i]->getBatch();
             }
         }
     }
 
     for (int i = start; i <= end; ++i) {
+        LOGI("batching: processing index %d", i);
+
         RenderData* render_data = render_data_vector[i];
         Batch* current_batch = render_data->getBatch();
         if (!current_batch) {
+            LOGI("batching: current_batch is null");
             if (!render_data->mesh()->isDynamic()) { // mesh is static
+                LOGI("batching: mesh is static");
                 // existing batch is not full
                 if (existing_batch
                         && existing_batch->getNumberOfMeshes() < BATCH_SIZE) {
@@ -189,14 +198,14 @@ void createBatch(int start, int end) {
                     if (batch_map.find(existing_batch) == batch_map.end()) {
                         batch_set.push_back(existing_batch);
                         batch_map[existing_batch] = batch_set.size() - 1;
-
                     }
                     render_data->setBatch(existing_batch);
+                    LOGI("batching: will use existing batch %p", existing_batch);
                 } else { // existing batch is full or does not exists
                     getNewBatch(render_data, &existing_batch);
                 }
             } else { // mesh is dynamic
-
+                LOGI("batching: mesh is dynamic");
                 // if one of the mesh is modified
                 if (existing_batch && existing_batch->isBatchDirty()) {
                     existing_batch->setMeshesDirty();
@@ -207,7 +216,10 @@ void createBatch(int start, int end) {
                         int index = it->second;
                         batch_set.erase(batch_set.begin() + index);
                     }
+                    batch_map.erase(existing_batch);
+                    LOGI("batching: deleting existing batch");
                     delete existing_batch;
+
                     getNewBatch(render_data, &existing_batch);
                 }
                 // existing batch is not full
@@ -229,20 +241,23 @@ void createBatch(int start, int end) {
                 }
             }
         } else { // batch is not null
-
+            LOGI("batching: current_batch is not null");
             // update the transform if model matrix is changed
-             if (render_data->owner_object()->isTransformDirty()
-                   && render_data->owner_object()->transform()) {
+            if (render_data->owner_object()->isTransformDirty()
+                    && render_data->owner_object()->transform()) {
+                LOGI("batching: updating the transform because the model matrix has changed");
                 current_batch->UpdateModelMatrix(render_data,
                         render_data->owner_object()->transform()->getModelMatrix());
             }
 
             if (!render_data->mesh()->isDynamic()) {
+                LOGI("batching: mesh is static");
                 if (batch_map.find(current_batch) == batch_map.end()) {
                     batch_set.push_back(current_batch);
                     batch_map[current_batch] = batch_set.size() - 1;
                 }
             } else { // mesh is dynamic
+                LOGI("batching: mesh is dynamic");
                 if (current_batch->isBatchDirty()) {
                     current_batch->setMeshesDirty();
 
@@ -252,8 +267,12 @@ void createBatch(int start, int end) {
                         int index = it->second;
                         batch_set.erase(batch_set.begin() + index);
                     }
+                    batch_map.erase(current_batch);
 
+                    //how is the deleted current_batch handled; is the code above enough?
+                    LOGI("batching: deleting the current batch");
                     delete current_batch;
+                    //use getNewBatch instead
                     Batch* new_batch = new Batch(MAX_INDICES, MAX_INDICES);
                     render_data->setBatch(new_batch);
                     new_batch->add(render_data);
@@ -269,6 +288,7 @@ void createBatch(int start, int end) {
             }
         }
     }
+    LOGI("batching: ]]] done processing batch for index %d to %d", start, end);
 }
 
 /*
@@ -276,7 +296,7 @@ void createBatch(int start, int end) {
  * for renderdatas to have in same batch, they need to have same render order, material,
  * shader type and mesh dynamic-ness
  */
-void Renderer::BatchSetup() {
+void Renderer::batchSetup() {
     batch_indices.clear();
     comparator prev, current;
 
@@ -287,6 +307,7 @@ void Renderer::BatchSetup() {
         prev.shader_type = render_data_vector[0]->material(0)->shader_type();
         prev.mesh_dynamic = render_data_vector[0]->mesh()->isDynamic();
         batch_indices.push_back(0);
+        LOGI("batching: index 0 starting a new batch");
     }
 
     // if previous render data does not have same properies which are required for batching, split them
@@ -300,8 +321,10 @@ void Renderer::BatchSetup() {
                 && current.mesh_dynamic == prev.mesh_dynamic
                 && current.mat == prev.mat
                 && current.shader_type == prev.shader_type) {
+            LOGI("batching: index %d batched with %d", i, batch_indices.back());
             continue;
         } else {
+            LOGI("batching: index %d starting a new batch", i);
             batch_indices.push_back(i);
             prev.mat = current.mat;
             prev.renderdata_properties = current.renderdata_properties;
@@ -309,6 +332,7 @@ void Renderer::BatchSetup() {
             prev.mesh_dynamic = current.mesh_dynamic;
         }
     }
+
     batch_indices.push_back(render_data_vector.size());
     batch_set.clear(); // Clear batch vector
     batch_map.clear();
@@ -334,7 +358,9 @@ void Renderer::cull(Scene *scene, Camera *camera,
     // Note: this needs to be scaled to sort on N states
     state_sort();
 
-    BatchSetup();
+    LOGI("batching: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+    batchSetup();
+    LOGI("batching: <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 }
 
 /*
@@ -422,6 +448,7 @@ void Renderer::renderbatches(RenderState& rstate) {
     glm::mat4 vp_matrix = glm::mat4(
             rstate.uniforms.u_proj * rstate.uniforms.u_view);
 
+    LOGI("batching: renderBatches; set size %d", batch_set.size());
     for (auto it = batch_set.begin(); it != batch_set.end(); ++it) {
 
         Batch* batch = *it;
@@ -435,6 +462,7 @@ void Renderer::renderbatches(RenderState& rstate) {
             const std::unordered_set<RenderData*>& render_data_set = batch->getRenderDataSet();
             for (auto it3 = render_data_set.begin();
                     it3 != render_data_set.end(); ++it3) {
+                LOGI("mmarinov renderbatches1 render non-batching %d", currentShaderType);
                 renderRenderData(rstate, (*it3));
             }
             continue;
@@ -452,6 +480,7 @@ void Renderer::renderbatches(RenderState& rstate) {
                 rstate.uniforms.u_view_[1] = rstate.scene->main_camera_rig()->right_camera()->getViewMatrix();
             }
 
+            LOGI("mmarinov renderbatches2");
             rstate.shader_manager->getTextureShader()->render_batch(matrices,
                 renderdata, rstate, batch->getIndexCount(),
                 batch->getNumberOfMeshes());
@@ -460,7 +489,7 @@ void Renderer::renderbatches(RenderState& rstate) {
     }
 
 }
-bool do_batching = true;
+bool do_batching = true ;
 
 void Renderer::renderRenderDataVector(RenderState &rstate) {
 
